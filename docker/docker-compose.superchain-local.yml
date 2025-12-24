@@ -1,0 +1,80 @@
+# ==============================================================================
+# SUPERCHAIN DATA VOLUMES - Local Path Configuration
+# ==============================================================================
+#
+# Override for Superchain compose to use local data paths
+#
+# Usage:
+#   docker compose -f docker-compose.superchain.yml -f docker-compose.superchain-local.yml --profile base up -d
+#
+# ==============================================================================
+
+name: homelab-superchain
+
+services:
+  # Base L2
+  base-geth:
+    volumes:
+      - ../data/volumes/superchain/base-geth:/data
+
+  base-node:
+    volumes:
+      - ../data/volumes/superchain/base-node:/data
+
+  # OP Mainnet
+  op-geth:
+    volumes:
+      - ../data/volumes/superchain/op-geth:/data
+
+  op-node:
+    volumes:
+      - ../data/volumes/superchain/op-node:/data
+
+  # Unichain
+  unichain-geth:
+    volumes:
+      - ../data/volumes/superchain/unichain-geth:/data
+
+  unichain-node:
+    volumes:
+      - ../data/volumes/superchain/unichain-node:/data
+
+  # Mode
+  mode-geth:
+    volumes:
+      - ../data/volumes/superchain/mode-geth:/data
+
+  mode-node:
+    volumes:
+      - ../data/volumes/superchain/mode-node:/data
+
+  # World Chain
+  world-geth:
+    volumes:
+      - ../data/volumes/superchain/world-geth:/data
+
+  world-node:
+    volumes:
+      - ../data/volumes/superchain/world-node:/data
+
+  # Lisk
+  lisk-geth:
+    volumes:
+      - ../data/volumes/superchain/lisk-geth:/data
+
+  lisk-node:
+    volumes:
+      - ../data/volumes/superchain/lisk-node:/data
+
+  # Shared services
+  superchain-db:
+    volumes:
+      - ../data/volumes/superchain/postgres:/var/lib/postgresql/data
+
+  superchain-prometheus:
+    volumes:
+      - ../data/volumes/superchain/prometheus:/prometheus
+
+  superchain-grafana:
+    volumes:
+      - ../data/volumes/superchain/grafana:/var/lib/grafana

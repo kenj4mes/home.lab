@@ -1,0 +1,73 @@
+# Superchain Prometheus Configuration
+# Monitors all OP-Stack L2 nodes
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Base L2 Node
+  - job_name: 'base-op-node'
+    static_configs:
+      - targets: ['base-node:7300']
+    metrics_path: /metrics
+
+  - job_name: 'base-geth'
+    static_configs:
+      - targets: ['base-geth:6060']
+    metrics_path: /debug/metrics/prometheus
+
+  # OP Mainnet Node
+  - job_name: 'op-node'
+    static_configs:
+      - targets: ['op-node:7300']
+    metrics_path: /metrics
+
+  - job_name: 'op-geth'
+    static_configs:
+      - targets: ['op-geth:6060']
+    metrics_path: /debug/metrics/prometheus
+
+  # Unichain Node
+  - job_name: 'unichain-node'
+    static_configs:
+      - targets: ['unichain-node:7300']
+    metrics_path: /metrics
+
+  - job_name: 'unichain-geth'
+    static_configs:
+      - targets: ['unichain-geth:6060']
+    metrics_path: /debug/metrics/prometheus
+
+  # Mode Network Node
+  - job_name: 'mode-node'
+    static_configs:
+      - targets: ['mode-node:7300']
+    metrics_path: /metrics
+
+  - job_name: 'mode-geth'
+    static_configs:
+      - targets: ['mode-geth:6060']
+    metrics_path: /debug/metrics/prometheus
+
+  # World Chain Node
+  - job_name: 'world-node'
+    static_configs:
+      - targets: ['world-node:7300']
+    metrics_path: /metrics
+
+  - job_name: 'world-geth'
+    static_configs:
+      - targets: ['world-geth:6060']
+    metrics_path: /debug/metrics/prometheus
+
+  # Lisk L2 Node
+  - job_name: 'lisk-node'
+    static_configs:
+      - targets: ['lisk-node:7300']
+    metrics_path: /metrics
+
+  - job_name: 'lisk-geth'
+    static_configs:
+      - targets: ['lisk-geth:6060']
+    metrics_path: /debug/metrics/prometheus

@@ -1,0 +1,15 @@
+[Unit]
+Description=HomeLab Services (Docker Compose)
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/homelab
+ExecStart=/usr/bin/docker compose -f docker/docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose -f docker/docker-compose.yml down
+ExecReload=/usr/bin/docker compose -f docker/docker-compose.yml restart
+
+[Install]
+WantedBy=multi-user.target

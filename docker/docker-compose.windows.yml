@@ -1,0 +1,175 @@
+# ==============================================================================
+# HomeLab Docker Compose - Windows PC Edition
+# ==============================================================================
+# Optimized for Docker Desktop on Windows
+# Uses Windows-style paths: C:/HomeLab/data and C:/HomeLab/config
+#
+# Usage:
+#   docker compose -f docker-compose.windows.yml up -d
+# ==============================================================================
+
+name: homelab
+
+services:
+  # ============================================================================
+  # MEDIA: Jellyfin
+  # ============================================================================
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-C:/HomeLab/config}/jellyfin:/config
+      - ${MEDIA_PATH:-C:/HomeLab/data}/Movies:/data/movies
+      - ${MEDIA_PATH:-C:/HomeLab/data}/Series:/data/tvshows
+      - ${MEDIA_PATH:-C:/HomeLab/data}/Music:/data/music
+    ports:
+      - "8096:8096"
+    restart: unless-stopped
+    # GPU acceleration (uncomment if you have NVIDIA GPU with WSL2)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ============================================================================
+  # DOWNLOADS: qBittorrent
+  # ============================================================================
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - WEBUI_PORT=8088
+    volumes:
+      - ${CONFIG_PATH:-C:/HomeLab/config}/qbittorrent:/config
+      - ${MEDIA_PATH:-C:/HomeLab/data}/Downloads:/downloads
+    ports:
+      - "8088:8088"
+      - "6881:6881"
+      - "6881:6881/udp"
+    restart: unless-stopped
+
+  # ============================================================================
+  # KNOWLEDGE: Kiwix (Offline Wikipedia)
+  # ============================================================================
+  kiwix:
+    image: ghcr.io/kiwix/kiwix-serve:latest
+    container_name: kiwix
+    volumes:
+      - ${MEDIA_PATH:-C:/HomeLab/data}/ZIM:/data:ro
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+    # Gracefully handle missing ZIM files
+    entrypoint: >
+      sh -c '
+        if ls /data/*.zim 1> /dev/null 2>&1; then
+          echo "Starting Kiwix with ZIM files..."
+          exec kiwix-serve --port 8080 /data/*.zim
+        else
+          echo "No ZIM files found in /data"
+          echo "Download ZIM files to C:/HomeLab/data/ZIM"
+          echo "Waiting for files..."
+          while ! ls /data/*.zim 1> /dev/null 2>&1; do sleep 60; done
+          exec kiwix-serve --port 8080 /data/*.zim
+        fi
+      '
+
+  # ============================================================================
+  # DOCUMENTATION: BookStack
+  # ============================================================================
+  bookstack:
+    image: linuxserver/bookstack:latest
+    container_name: bookstack
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - APP_URL=${BOOKSTACK_URL:-http://localhost:8082}
+      - DB_HOST=bookstack-db
+      - DB_PORT=3306
+      - DB_USER=bookstack
+      - DB_PASS=${BOOKSTACK_DB_PASSWORD:-bookstack}
+      - DB_DATABASE=bookstackapp
+    volumes:
+      - ${CONFIG_PATH:-C:/HomeLab/config}/bookstack:/config
+    ports:
+      - "8082:80"
+    depends_on:
+      - bookstack-db
+    restart: unless-stopped
+
+  bookstack-db:
+    image: linuxserver/mariadb:latest
+    container_name: bookstack-db
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - MYSQL_ROOT_PASSWORD=${BOOKSTACK_DB_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=bookstackapp
+      - MYSQL_USER=bookstack
+      - MYSQL_PASSWORD=${BOOKSTACK_DB_PASSWORD:-bookstack}
+    volumes:
+      - ${CONFIG_PATH:-C:/HomeLab/config}/bookstack-db:/config
+    restart: unless-stopped
+
+  # ============================================================================
+  # AI: Open WebUI (connects to local Ollama)
+  # ============================================================================
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    environment:
+      # Connect to Ollama running on Windows host
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    volumes:
+      - ${CONFIG_PATH:-C:/HomeLab/config}/open-webui:/app/backend/data
+    ports:
+      - "3000:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # ============================================================================
+  # MANAGEMENT: Portainer
+  # ============================================================================
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${CONFIG_PATH:-C:/HomeLab/config}/portainer:/data
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+
+  # ============================================================================
+  # PROXY: Nginx Proxy Manager
+  # ============================================================================
+  nginx-proxy:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"     # Admin UI
+    volumes:
+      - ${CONFIG_PATH:-C:/HomeLab/config}/nginx/data:/data
+      - ${CONFIG_PATH:-C:/HomeLab/config}/nginx/letsencrypt:/etc/letsencrypt
+    restart: unless-stopped
+
+# ==============================================================================
+# NETWORKS
+# ==============================================================================
+networks:
+  default:
+    name: homelab
+    driver: bridge

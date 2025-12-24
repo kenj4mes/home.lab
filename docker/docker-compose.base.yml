@@ -1,0 +1,118 @@
+# ==============================================================================
+# 🔗 HomeLab Base Blockchain Stack - Docker Compose
+# ==============================================================================
+# Base L2 blockchain services:
+#   - Base Node, Blockscout, Wallet UI, Wallet API
+# ==============================================================================
+
+name: homelab
+
+networks:
+  homelab:
+    name: homelab
+    external: true
+  base-internal:
+    name: base-internal
+    internal: true
+
+volumes:
+  base-node-data:
+  base-db-data:
+  base-explorer-data:
+
+
+services:
+  base-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:latest
+    container_name: base-node
+    environment:
+      - NETWORK=${BASE_NETWORK:-base-mainnet}
+      - SYNCMODE=${BASE_SYNC_MODE:-light}
+      - GETH_HTTP_ENABLE=true
+      - GETH_HTTP_ADDR=0.0.0.0
+      - GETH_HTTP_PORT=8545
+      - GETH_HTTP_API=eth,net,web3,debug,txpool
+      - GETH_HTTP_CORSDOMAIN=*
+      - GETH_HTTP_VHOSTS=*
+      - GETH_WS_ENABLE=true
+      - GETH_WS_ADDR=0.0.0.0
+      - GETH_WS_PORT=8546
+      - GETH_WS_API=eth,net,web3,debug,txpool
+      - GETH_WS_ORIGINS=*
+    volumes:
+      - base-node-data:/data
+      - ${CONFIG_PATH:-C:/HomeLab/config}/base-node:/config
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+      - "30303:30303"
+    networks:
+      - homelab
+      - base-internal
+    restart: unless-stopped
+
+  base-db:
+    image: postgres:15-alpine
+    container_name: base-db
+    environment:
+      POSTGRES_DB: blockscout
+      POSTGRES_USER: blockscout
+      POSTGRES_PASSWORD: ${BASE_DB_PASSWORD:-CHANGEME_BASE_DB}
+    volumes:
+      - base-db-data:/var/lib/postgresql/data
+    networks:
+      - base-internal
+    restart: unless-stopped
+
+  base-explorer:
+    image: blockscout/blockscout:latest
+    container_name: base-explorer
+    depends_on:
+      - base-db
+      - base-node
+    environment:
+      - DATABASE_URL=postgresql://blockscout:${BASE_DB_PASSWORD:-CHANGEME_BASE_DB}@base-db:5432/blockscout
+      - ETHEREUM_JSONRPC_VARIANT=geth
+      - ETHEREUM_JSONRPC_HTTP_URL=http://base-node:8545
+      - ETHEREUM_JSONRPC_WS_URL=ws://base-node:8546
+      - NETWORK=Base
+      - CHAIN_ID=8453
+      - SECRET_KEY_BASE=${BASE_EXPLORER_SECRET:-CHANGEME_EXPLORER_SECRET_32_CHARS_MIN}
+      - PORT=4000
+    volumes:
+      - base-explorer-data:/app/data
+    ports:
+      - "4000:4000"
+    networks:
+      - homelab
+      - base-internal
+    restart: unless-stopped
+
+  base-wallet:
+    image: node:20-alpine
+    container_name: base-wallet
+    working_dir: /app
+    volumes:
+      - ${CONFIG_PATH:-C:/HomeLab/config}/base-wallet:/app
+    ports:
+      - "3001:3000"
+    networks:
+      - homelab
+      - base-internal
+    restart: unless-stopped
+
+  base-wallet-cli:
+    image: python:3.12-slim
+    container_name: base-wallet-cli
+    build:
+      context: ../miniapps/base-wallet-cli
+    environment:
+      - RPC_URL=http://base-node:8545
+      - CHAIN_ID=${BASE_CHAIN_ID:-8453}
+      - PRIVATE_KEY=${BASE_WALLET_PRIVATE_KEY:-}
+    ports:
+      - "5000:5000"
+    networks:
+      - homelab
+      - base-internal
+    restart: unless-stopped

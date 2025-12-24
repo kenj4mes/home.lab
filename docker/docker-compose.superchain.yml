@@ -1,0 +1,565 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SUPERCHAIN ECOSYSTEM - Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════════
+# Multi-chain OP-Stack node orchestration
+# 
+# Usage:
+#   docker compose -f docker-compose.superchain.yml --profile base up -d
+#   docker compose -f docker-compose.superchain.yml --profile op-mainnet up -d
+#   docker compose -f docker-compose.superchain.yml --profile multi up -d
+#
+# Profiles:
+#   base        - Base L2 node only
+#   op-mainnet  - OP Mainnet node only
+#   unichain    - Unichain node only
+#   mode        - Mode network node only
+#   world       - World Chain node only
+#   lisk        - Lisk L2 node only
+#   multi       - Run multiple chains (resource intensive)
+#   explorer    - Include Blockscout explorer
+#   monitoring  - Include Prometheus/Grafana
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: homelab-superchain
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
+x-op-node-common: &op-node-common
+  restart: unless-stopped
+  logging: *default-logging
+  networks:
+    - superchain
+  environment:
+    - OP_NODE_L1_ETH_RPC=${L1_RPC_URL:-https://eth.llamarpc.com}
+    - OP_NODE_L1_BEACON=${L1_BEACON_URL:-https://ethereum-beacon-api.publicnode.com}
+    - OP_NODE_L1_RPC_KIND=${L1_RPC_KIND:-standard}
+
+x-op-geth-common: &op-geth-common
+  restart: unless-stopped
+  logging: *default-logging
+  networks:
+    - superchain
+  environment:
+    - GETH_VERBOSITY=${GETH_VERBOSITY:-3}
+
+services:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BASE L2 NODE
+  # ═══════════════════════════════════════════════════════════════════════════
+  base-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101315.2
+    profiles: ["base", "multi"]
+    <<: *op-geth-common
+    container_name: base-geth
+    ports:
+      - "${BASE_RPC_PORT:-8545}:8545"
+      - "${BASE_WS_PORT:-8546}:8546"
+    volumes:
+      - base-geth-data:/data
+    command:
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,txpool
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,debug,txpool
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/data/jwt.hex
+      - --rollup.sequencerhttp=https://mainnet-sequencer.base.org
+      - --rollup.disabletxpoolgossip
+      - --networkid=8453
+      - --syncmode=snap
+      - --gcmode=full
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8545"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  base-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
+    profiles: ["base", "multi"]
+    <<: *op-node-common
+    container_name: base-node
+    depends_on:
+      - base-geth
+    ports:
+      - "${BASE_P2P_PORT:-9222}:9222"
+    volumes:
+      - base-node-data:/data
+    command:
+      - op-node
+      - --l1=${L1_RPC_URL:-https://eth.llamarpc.com}
+      - --l1.beacon=${L1_BEACON_URL:-https://ethereum-beacon-api.publicnode.com}
+      - --l2=http://base-geth:8551
+      - --l2.jwt-secret=/data/jwt.hex
+      - --network=base-mainnet
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=9545
+      - --p2p.listen.ip=0.0.0.0
+      - --p2p.listen.tcp=9222
+      - --p2p.listen.udp=9222
+      - --metrics.enabled
+      - --metrics.addr=0.0.0.0
+      - --metrics.port=7300
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9545"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OP MAINNET NODE
+  # ═══════════════════════════════════════════════════════════════════════════
+  op-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101315.2
+    profiles: ["op-mainnet", "multi"]
+    <<: *op-geth-common
+    container_name: op-geth
+    ports:
+      - "${OP_RPC_PORT:-8555}:8545"
+      - "${OP_WS_PORT:-8556}:8546"
+    volumes:
+      - op-geth-data:/data
+    command:
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,txpool
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,debug,txpool
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/data/jwt.hex
+      - --rollup.sequencerhttp=https://mainnet-sequencer.optimism.io
+      - --rollup.disabletxpoolgossip
+      - --networkid=10
+      - --syncmode=snap
+      - --gcmode=full
+
+  op-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
+    profiles: ["op-mainnet", "multi"]
+    <<: *op-node-common
+    container_name: op-node
+    depends_on:
+      - op-geth
+    ports:
+      - "${OP_P2P_PORT:-9232}:9222"
+    volumes:
+      - op-node-data:/data
+    command:
+      - op-node
+      - --l1=${L1_RPC_URL:-https://eth.llamarpc.com}
+      - --l1.beacon=${L1_BEACON_URL:-https://ethereum-beacon-api.publicnode.com}
+      - --l2=http://op-geth:8551
+      - --l2.jwt-secret=/data/jwt.hex
+      - --network=op-mainnet
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=9545
+      - --p2p.listen.ip=0.0.0.0
+      - --p2p.listen.tcp=9222
+      - --p2p.listen.udp=9222
+      - --metrics.enabled
+      - --metrics.addr=0.0.0.0
+      - --metrics.port=7300
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # UNICHAIN NODE
+  # ═══════════════════════════════════════════════════════════════════════════
+  unichain-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101315.2
+    profiles: ["unichain", "multi"]
+    <<: *op-geth-common
+    container_name: unichain-geth
+    ports:
+      - "${UNICHAIN_RPC_PORT:-8565}:8545"
+      - "${UNICHAIN_WS_PORT:-8566}:8546"
+    volumes:
+      - unichain-geth-data:/data
+    command:
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,txpool
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,debug,txpool
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/data/jwt.hex
+      - --rollup.sequencerhttp=https://mainnet-sequencer.unichain.org
+      - --rollup.disabletxpoolgossip
+      - --networkid=130
+      - --syncmode=snap
+      - --gcmode=full
+
+  unichain-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
+    profiles: ["unichain", "multi"]
+    <<: *op-node-common
+    container_name: unichain-node
+    depends_on:
+      - unichain-geth
+    ports:
+      - "${UNICHAIN_P2P_PORT:-9242}:9222"
+    volumes:
+      - unichain-node-data:/data
+    command:
+      - op-node
+      - --l1=${L1_RPC_URL:-https://eth.llamarpc.com}
+      - --l1.beacon=${L1_BEACON_URL:-https://ethereum-beacon-api.publicnode.com}
+      - --l2=http://unichain-geth:8551
+      - --l2.jwt-secret=/data/jwt.hex
+      - --network=unichain
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=9545
+      - --p2p.listen.ip=0.0.0.0
+      - --p2p.listen.tcp=9222
+      - --p2p.listen.udp=9222
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MODE NETWORK NODE
+  # ═══════════════════════════════════════════════════════════════════════════
+  mode-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101315.2
+    profiles: ["mode", "multi"]
+    <<: *op-geth-common
+    container_name: mode-geth
+    ports:
+      - "${MODE_RPC_PORT:-8575}:8545"
+      - "${MODE_WS_PORT:-8576}:8546"
+    volumes:
+      - mode-geth-data:/data
+    command:
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,txpool
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,debug,txpool
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/data/jwt.hex
+      - --rollup.sequencerhttp=https://mainnet-sequencer.mode.network
+      - --rollup.disabletxpoolgossip
+      - --networkid=34443
+      - --syncmode=snap
+      - --gcmode=full
+
+  mode-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
+    profiles: ["mode", "multi"]
+    <<: *op-node-common
+    container_name: mode-node
+    depends_on:
+      - mode-geth
+    ports:
+      - "${MODE_P2P_PORT:-9252}:9222"
+    volumes:
+      - mode-node-data:/data
+    command:
+      - op-node
+      - --l1=${L1_RPC_URL:-https://eth.llamarpc.com}
+      - --l1.beacon=${L1_BEACON_URL:-https://ethereum-beacon-api.publicnode.com}
+      - --l2=http://mode-geth:8551
+      - --l2.jwt-secret=/data/jwt.hex
+      - --network=mode-mainnet
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=9545
+      - --p2p.listen.ip=0.0.0.0
+      - --p2p.listen.tcp=9222
+      - --p2p.listen.udp=9222
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORLD CHAIN NODE
+  # ═══════════════════════════════════════════════════════════════════════════
+  world-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101315.2
+    profiles: ["world", "multi"]
+    <<: *op-geth-common
+    container_name: world-geth
+    ports:
+      - "${WORLD_RPC_PORT:-8585}:8545"
+      - "${WORLD_WS_PORT:-8586}:8546"
+    volumes:
+      - world-geth-data:/data
+    command:
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,txpool
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,debug,txpool
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/data/jwt.hex
+      - --rollup.sequencerhttp=https://mainnet-sequencer.world.org
+      - --rollup.disabletxpoolgossip
+      - --networkid=480
+      - --syncmode=snap
+      - --gcmode=full
+
+  world-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
+    profiles: ["world", "multi"]
+    <<: *op-node-common
+    container_name: world-node
+    depends_on:
+      - world-geth
+    ports:
+      - "${WORLD_P2P_PORT:-9262}:9222"
+    volumes:
+      - world-node-data:/data
+    command:
+      - op-node
+      - --l1=${L1_RPC_URL:-https://eth.llamarpc.com}
+      - --l1.beacon=${L1_BEACON_URL:-https://ethereum-beacon-api.publicnode.com}
+      - --l2=http://world-geth:8551
+      - --l2.jwt-secret=/data/jwt.hex
+      - --network=worldchain-mainnet
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=9545
+      - --p2p.listen.ip=0.0.0.0
+      - --p2p.listen.tcp=9222
+      - --p2p.listen.udp=9222
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LISK L2 NODE
+  # ═══════════════════════════════════════════════════════════════════════════
+  lisk-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101315.2
+    profiles: ["lisk", "multi"]
+    <<: *op-geth-common
+    container_name: lisk-geth
+    ports:
+      - "${LISK_RPC_PORT:-8595}:8545"
+      - "${LISK_WS_PORT:-8596}:8546"
+    volumes:
+      - lisk-geth-data:/data
+    command:
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,txpool
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,debug,txpool
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/data/jwt.hex
+      - --rollup.sequencerhttp=https://rpc.api.lisk.com
+      - --rollup.disabletxpoolgossip
+      - --networkid=1135
+      - --syncmode=snap
+      - --gcmode=full
+
+  lisk-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
+    profiles: ["lisk", "multi"]
+    <<: *op-node-common
+    container_name: lisk-node
+    depends_on:
+      - lisk-geth
+    ports:
+      - "${LISK_P2P_PORT:-9272}:9222"
+    volumes:
+      - lisk-node-data:/data
+    command:
+      - op-node
+      - --l1=${L1_RPC_URL:-https://eth.llamarpc.com}
+      - --l1.beacon=${L1_BEACON_URL:-https://ethereum-beacon-api.publicnode.com}
+      - --l2=http://lisk-geth:8551
+      - --l2.jwt-secret=/data/jwt.hex
+      - --network=lisk-mainnet
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=9545
+      - --p2p.listen.ip=0.0.0.0
+      - --p2p.listen.tcp=9222
+      - --p2p.listen.udp=9222
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SHARED SERVICES
+  # ═══════════════════════════════════════════════════════════════════════════
+  
+  # Blockscout Explorer (works with any chain)
+  superchain-explorer:
+    image: blockscout/blockscout:latest
+    profiles: ["explorer"]
+    container_name: superchain-explorer
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - superchain
+    ports:
+      - "${EXPLORER_PORT:-4010}:4000"
+    environment:
+      - ETHEREUM_JSONRPC_VARIANT=geth
+      - ETHEREUM_JSONRPC_HTTP_URL=${EXPLORER_RPC_URL:-http://base-geth:8545}
+      - ETHEREUM_JSONRPC_WS_URL=${EXPLORER_WS_URL:-ws://base-geth:8546}
+      - DATABASE_URL=postgresql://blockscout:${BLOCKSCOUT_DB_PASS:-blockscout}@superchain-db:5432/blockscout
+      - ECTO_USE_SSL=false
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-superchain_secret_key_base_at_least_64_bytes_long_for_security}
+      - COIN=ETH
+      - COIN_NAME=Ether
+      - LOGO=/images/blockscout_logo.svg
+      - SUPPORTED_CHAINS=[]
+      - SHOW_TXS_CHART=true
+      - DISABLE_EXCHANGE_RATES=true
+    depends_on:
+      - superchain-db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  superchain-db:
+    image: postgres:15-alpine
+    profiles: ["explorer"]
+    container_name: superchain-db
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - superchain
+    volumes:
+      - superchain-db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=blockscout
+      - POSTGRES_PASSWORD=${BLOCKSCOUT_DB_PASS:-blockscout}
+      - POSTGRES_DB=blockscout
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blockscout"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus for metrics
+  superchain-prometheus:
+    image: prom/prometheus:latest
+    profiles: ["monitoring"]
+    container_name: superchain-prometheus
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - superchain
+    ports:
+      - "${PROM_PORT:-9190}:9090"
+    volumes:
+      - ./configs/superchain-prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - superchain-prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.enable-lifecycle
+
+  # Grafana dashboards
+  superchain-grafana:
+    image: grafana/grafana:latest
+    profiles: ["monitoring"]
+    container_name: superchain-grafana
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - superchain
+    ports:
+      - "${GRAFANA_PORT:-3200}:3000"
+    volumes:
+      - superchain-grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - superchain-prometheus
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUPERCHAIN DASHBOARD
+  # ═══════════════════════════════════════════════════════════════════════════
+  superchain-dashboard:
+    image: nginx:alpine
+    profiles: ["base", "op-mainnet", "unichain", "mode", "world", "lisk", "multi"]
+    container_name: superchain-dashboard
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - superchain
+    ports:
+      - "${DASHBOARD_PORT:-8600}:80"
+    volumes:
+      - ../miniapps/superchain-dashboard/html:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  superchain:
+    name: superchain
+    driver: bridge
+
+volumes:
+  # Base L2
+  base-geth-data:
+  base-node-data:
+  # OP Mainnet
+  op-geth-data:
+  op-node-data:
+  # Unichain
+  unichain-geth-data:
+  unichain-node-data:
+  # Mode
+  mode-geth-data:
+  mode-node-data:
+  # World Chain
+  world-geth-data:
+  world-node-data:
+  # Lisk
+  lisk-geth-data:
+  lisk-node-data:
+  # Shared
+  superchain-db-data:
+  superchain-prometheus-data:
+  superchain-grafana-data:

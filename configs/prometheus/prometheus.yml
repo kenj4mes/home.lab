@@ -1,0 +1,82 @@
+# ==============================================================================
+# 📊 Prometheus Configuration for HomeLab
+# ==============================================================================
+# Place this file at: ${CONFIG_PATH}/prometheus/prometheus.yml
+# Or use the provided default in configs/prometheus/
+# ==============================================================================
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    monitor: 'homelab'
+
+# Alerting configuration (optional - configure alertmanager if needed)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Rule files for alerts
+# rule_files:
+#   - "alerts/*.yml"
+
+# ==============================================================================
+# SCRAPE CONFIGURATIONS
+# ==============================================================================
+
+scrape_configs:
+  # --------------------------------------------------------------------------
+  # Prometheus itself
+  # --------------------------------------------------------------------------
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # --------------------------------------------------------------------------
+  # Docker containers via cAdvisor
+  # --------------------------------------------------------------------------
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'homelab-docker'
+
+  # --------------------------------------------------------------------------
+  # Node Exporter (Host metrics)
+  # --------------------------------------------------------------------------
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'homelab-host'
+
+  # --------------------------------------------------------------------------
+  # Ollama Metrics (if exposed)
+  # --------------------------------------------------------------------------
+  - job_name: 'ollama'
+    static_configs:
+      - targets: ['ollama:11434']
+    metrics_path: /metrics
+    scheme: http
+
+  # --------------------------------------------------------------------------
+  # Base Blockchain (if running)
+  # --------------------------------------------------------------------------
+  - job_name: 'base-node'
+    static_configs:
+      - targets: ['base-node:6060']
+    metrics_path: /debug/metrics/prometheus
+    scheme: http
+
+  # --------------------------------------------------------------------------
+  # Docker Engine Metrics (if enabled in daemon.json)
+  # --------------------------------------------------------------------------
+  # - job_name: 'docker'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:9323']

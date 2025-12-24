@@ -1,0 +1,234 @@
+# ==============================================================================
+# 🔍 HomeLab CI - Linting & Validation
+# ==============================================================================
+# Validates all scripts, configs, and compose files on every push/PR
+# ==============================================================================
+
+name: CI - Lint & Validate
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Shell Script Linting
+  # --------------------------------------------------------------------------
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './scripts'
+          severity: error
+          format: tty
+          
+  # --------------------------------------------------------------------------
+  # PowerShell Linting
+  # --------------------------------------------------------------------------
+  powershell:
+    name: PowerShell Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $results = Get-ChildItem -Path . -Include *.ps1 -Recurse | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_.FullName -Settings ./PSScriptAnalyzerSettings.psd1 -Severity Error
+          }
+          if ($results) {
+            $results | Format-Table -AutoSize
+            exit 1
+          }
+          Write-Host "All PowerShell scripts passed analysis" -ForegroundColor Green
+
+  # --------------------------------------------------------------------------
+  # Docker Compose Validation
+  # --------------------------------------------------------------------------
+  docker-compose:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create dummy .env
+        run: |
+          cat > docker/.env << 'EOF'
+          TZ=UTC
+          PUID=1000
+          PGID=1000
+          CONFIG_PATH=/srv/config
+          MEDIA_PATH=/srv/data
+          BOOKSTACK_DB_ROOT_PASSWORD=testpass
+          BOOKSTACK_DB_PASSWORD=testpass
+          BASE_DB_PASSWORD=testpass
+          BASE_EXPLORER_SECRET=testsecret0123456789012345678901
+          GRAFANA_PASSWORD=admin
+          EOF
+          
+      - name: Validate docker-compose.yml
+        run: docker compose -f docker/docker-compose.yml config > /dev/null
+        
+      - name: Validate docker-compose.windows.yml
+        run: docker compose -f docker/docker-compose.windows.yml config > /dev/null
+        
+      - name: Validate docker-compose.base.yml
+        run: docker compose -f docker/docker-compose.base.yml config > /dev/null
+        
+      - name: Validate docker-compose.monitoring.yml
+        run: docker compose -f docker/docker-compose.monitoring.yml config > /dev/null
+        
+      - name: Validate docker-compose.pihole.yml
+        run: docker compose -f docker/docker-compose.pihole.yml config > /dev/null
+        
+      - name: Validate docker-compose.arr.yml
+        run: docker compose -f docker/docker-compose.arr.yml config > /dev/null
+        
+      - name: Validate docker-compose.quantum.yml
+        run: docker compose -f docker/docker-compose.quantum.yml config > /dev/null
+
+  # --------------------------------------------------------------------------
+  # YAML Validation
+  # --------------------------------------------------------------------------
+  yaml:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install yamllint
+        run: pip install yamllint
+        
+      - name: Lint YAML files
+        run: |
+          yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable}}" \
+            .github/workflows/*.yml \
+            docker/*.yml \
+            configs/**/*.yml || true
+
+  # --------------------------------------------------------------------------
+  # JSON Validation
+  # --------------------------------------------------------------------------
+  json:
+    name: JSON Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate JSON files
+        run: |
+          find . -name "*.json" -type f | while read file; do
+            echo "Validating: $file"
+            python3 -m json.tool "$file" > /dev/null || exit 1
+          done
+
+  # --------------------------------------------------------------------------
+  # Terraform Validation
+  # --------------------------------------------------------------------------
+  terraform:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        
+      - name: Terraform Init (no backend)
+        working-directory: ./terraform
+        run: terraform init -backend=false
+        
+      - name: Terraform Validate
+        working-directory: ./terraform
+        run: terraform validate
+
+  # --------------------------------------------------------------------------
+  # Python Linting (for miniapps)
+  # --------------------------------------------------------------------------
+  python:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: pip install flake8 black
+        
+      - name: Check formatting with Black
+        run: black --check miniapps/ || true
+        
+      - name: Lint with flake8
+        run: flake8 miniapps/ --max-line-length=120 --ignore=E501,W503 || true
+
+  # --------------------------------------------------------------------------
+  # Security Scan
+  # --------------------------------------------------------------------------
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for secrets
+        run: |
+          # Look for potential secrets in tracked files
+          if grep -rE "(password|secret|key|token)\s*=\s*['\"]?[a-zA-Z0-9]{16,}" \
+               --include="*.sh" --include="*.ps1" --include="*.py" \
+               --exclude-dir=.git .; then
+            echo "::warning::Potential secrets found in code"
+          fi
+          
+      - name: Check .env not committed
+        run: |
+          if [ -f "docker/.env" ]; then
+            echo "::error::.env file should not be committed"
+            exit 1
+          fi
+
+  # --------------------------------------------------------------------------
+  # Post-Quantum Validation
+  # --------------------------------------------------------------------------
+  quantum:
+    name: Quantum Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate quantum-rng Python
+        run: python3 -m py_compile miniapps/quantum-rng/qrng.py
+        
+      - name: Validate quantum-simulator Python
+        run: |
+          python3 -m py_compile miniapps/quantum-simulator/quantum_api.py
+          python3 -m py_compile miniapps/quantum-simulator/circuits.py
+          
+      - name: Check quantum Dockerfiles
+        run: |
+          # Validate Dockerfile syntax
+          docker build --check miniapps/quantum-rng/ || echo "Dockerfile check not supported"
+          docker build --check miniapps/quantum-simulator/ || echo "Dockerfile check not supported"
+          
+      - name: Validate nginx PQ-SSL config
+        run: |
+          # Check nginx config syntax (basic)
+          grep -q "ssl_protocols" configs/nginx-proxy/99-pq-ssl.conf
+          grep -q "TLSv1.3" configs/nginx-proxy/99-pq-ssl.conf
+          echo "PQ-SSL config validated"

@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superchain Dashboard - HomeLab</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --accent-red: #ff0420;
+            --accent-blue: #0052ff;
+            --accent-green: #00d395;
+            --accent-yellow: #ffc107;
+            --accent-purple: #7c3aed;
+            --border-color: #2a2a3a;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--accent-red) 0%, var(--accent-blue) 100%);
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .chains-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .chain-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+        }
+        
+        .chain-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+        
+        .chain-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .chain-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .chain-category {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            background: var(--accent-purple);
+            opacity: 0.8;
+        }
+        
+        .chain-category.finance { background: var(--accent-green); }
+        .chain-category.creator { background: var(--accent-blue); }
+        .chain-category.gaming { background: var(--accent-yellow); color: #000; }
+        .chain-category.general { background: var(--accent-purple); }
+        .chain-category.core { background: var(--accent-red); }
+        
+        .chain-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .info-value {
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 0.875rem;
+        }
+        
+        .chain-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+        }
+        
+        .status-dot.online { background: var(--accent-green); }
+        .status-dot.syncing { background: var(--accent-yellow); }
+        .status-dot.offline { background: var(--accent-red); }
+        
+        .status-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+        
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+        
+        .commands-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .command-block {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+        }
+        
+        .command-block code {
+            color: var(--accent-green);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⛓️ Superchain Dashboard</h1>
+        <p>OP-Stack Ecosystem Node Management</p>
+    </div>
+    
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="total-chains">31</div>
+                <div class="stat-label">Total Ecosystems</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="active-nodes">0</div>
+                <div class="stat-label">Active Nodes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-repos">23</div>
+                <div class="stat-label">Cloned Repos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="disk-usage">--</div>
+                <div class="stat-label">Disk Usage</div>
+            </div>
+        </div>
+        
+        <h2 class="section-title">🔗 Active Chain Nodes</h2>
+        
+        <div class="chains-grid">
+            <div class="chain-card">
+                <div class="chain-header">
+                    <span class="chain-name">Base</span>
+                    <span class="chain-category finance">Finance</span>
+                </div>
+                <div class="chain-info">
+                    <div class="info-item">
+                        <span class="info-label">Chain ID</span>
+                        <span class="info-value">8453</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">RPC Port</span>
+                        <span class="info-value">8545</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">WS Port</span>
+                        <span class="info-value">8546</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">P2P Port</span>
+                        <span class="info-value">9222</span>
+                    </div>
+                </div>
+                <div class="chain-status">
+                    <span class="status-dot" id="base-status"></span>
+                    <span class="status-text" id="base-status-text">Checking...</span>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="window.open('http://localhost:8545', '_blank')">RPC</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chain-card">
+                <div class="chain-header">
+                    <span class="chain-name">OP Mainnet</span>
+                    <span class="chain-category core">Core</span>
+                </div>
+                <div class="chain-info">
+                    <div class="info-item">
+                        <span class="info-label">Chain ID</span>
+                        <span class="info-value">10</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">RPC Port</span>
+                        <span class="info-value">8555</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">WS Port</span>
+                        <span class="info-value">8556</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">P2P Port</span>
+                        <span class="info-value">9232</span>
+                    </div>
+                </div>
+                <div class="chain-status">
+                    <span class="status-dot" id="op-status"></span>
+                    <span class="status-text" id="op-status-text">Checking...</span>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="window.open('http://localhost:8555', '_blank')">RPC</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chain-card">
+                <div class="chain-header">
+                    <span class="chain-name">Unichain</span>
+                    <span class="chain-category finance">Finance</span>
+                </div>
+                <div class="chain-info">
+                    <div class="info-item">
+                        <span class="info-label">Chain ID</span>
+                        <span class="info-value">130</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">RPC Port</span>
+                        <span class="info-value">8565</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">WS Port</span>
+                        <span class="info-value">8566</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">P2P Port</span>
+                        <span class="info-value">9242</span>
+                    </div>
+                </div>
+                <div class="chain-status">
+                    <span class="status-dot" id="unichain-status"></span>
+                    <span class="status-text" id="unichain-status-text">Checking...</span>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="window.open('http://localhost:8565', '_blank')">RPC</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chain-card">
+                <div class="chain-header">
+                    <span class="chain-name">Mode</span>
+                    <span class="chain-category finance">Finance</span>
+                </div>
+                <div class="chain-info">
+                    <div class="info-item">
+                        <span class="info-label">Chain ID</span>
+                        <span class="info-value">34443</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">RPC Port</span>
+                        <span class="info-value">8575</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">WS Port</span>
+                        <span class="info-value">8576</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">P2P Port</span>
+                        <span class="info-value">9252</span>
+                    </div>
+                </div>
+                <div class="chain-status">
+                    <span class="status-dot" id="mode-status"></span>
+                    <span class="status-text" id="mode-status-text">Checking...</span>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="window.open('http://localhost:8575', '_blank')">RPC</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chain-card">
+                <div class="chain-header">
+                    <span class="chain-name">World Chain</span>
+                    <span class="chain-category general">General</span>
+                </div>
+                <div class="chain-info">
+                    <div class="info-item">
+                        <span class="info-label">Chain ID</span>
+                        <span class="info-value">480</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">RPC Port</span>
+                        <span class="info-value">8585</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">WS Port</span>
+                        <span class="info-value">8586</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">P2P Port</span>
+                        <span class="info-value">9262</span>
+                    </div>
+                </div>
+                <div class="chain-status">
+                    <span class="status-dot" id="world-status"></span>
+                    <span class="status-text" id="world-status-text">Checking...</span>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="window.open('http://localhost:8585', '_blank')">RPC</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chain-card">
+                <div class="chain-header">
+                    <span class="chain-name">Lisk</span>
+                    <span class="chain-category general">General</span>
+                </div>
+                <div class="chain-info">
+                    <div class="info-item">
+                        <span class="info-label">Chain ID</span>
+                        <span class="info-value">1135</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">RPC Port</span>
+                        <span class="info-value">8595</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">WS Port</span>
+                        <span class="info-value">8596</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">P2P Port</span>
+                        <span class="info-value">9272</span>
+                    </div>
+                </div>
+                <div class="chain-status">
+                    <span class="status-dot" id="lisk-status"></span>
+                    <span class="status-text" id="lisk-status-text">Checking...</span>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="window.open('http://localhost:8595', '_blank')">RPC</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="commands-section">
+            <h2 class="section-title">🚀 Quick Commands</h2>
+            
+            <div class="command-block">
+                <code># Clone all Superchain repos</code><br>
+                <code>.\scripts\clone-superchain.ps1</code>
+            </div>
+            
+            <div class="command-block">
+                <code># Start Base L2 node</code><br>
+                <code>docker compose -f docker/docker-compose.superchain.yml --profile base up -d</code>
+            </div>
+            
+            <div class="command-block">
+                <code># Start multiple chains</code><br>
+                <code>docker compose -f docker/docker-compose.superchain.yml --profile multi up -d</code>
+            </div>
+            
+            <div class="command-block">
+                <code># Check sync status</code><br>
+                <code>curl -X POST http://localhost:8545 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}'</code>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Superchain Dashboard • HomeLab Infrastructure • Powered by OP-Stack</p>
+    </div>
+    
+    <script>
+        // Check node health
+        async function checkNodeHealth(port, statusId, textId) {
+            const dot = document.getElementById(statusId);
+            const text = document.getElementById(textId);
+            
+            try {
+                const response = await fetch(`http://localhost:${port}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'eth_syncing',
+                        params: [],
+                        id: 1
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.result === false) {
+                        dot.className = 'status-dot online';
+                        text.textContent = 'Synced';
+                    } else if (data.result) {
+                        dot.className = 'status-dot syncing';
+                        const current = parseInt(data.result.currentBlock, 16);
+                        const highest = parseInt(data.result.highestBlock, 16);
+                        const percent = ((current / highest) * 100).toFixed(1);
+                        text.textContent = `Syncing ${percent}%`;
+                    }
+                } else {
+                    dot.className = 'status-dot offline';
+                    text.textContent = 'Offline';
+                }
+            } catch (e) {
+                dot.className = 'status-dot offline';
+                text.textContent = 'Offline';
+            }
+        }
+        
+        // Check all nodes on load
+        window.onload = function() {
+            checkNodeHealth(8545, 'base-status', 'base-status-text');
+            checkNodeHealth(8555, 'op-status', 'op-status-text');
+            checkNodeHealth(8565, 'unichain-status', 'unichain-status-text');
+            checkNodeHealth(8575, 'mode-status', 'mode-status-text');
+            checkNodeHealth(8585, 'world-status', 'world-status-text');
+            checkNodeHealth(8595, 'lisk-status', 'lisk-status-text');
+            
+            // Update active count
+            setTimeout(() => {
+                const online = document.querySelectorAll('.status-dot.online, .status-dot.syncing').length;
+                document.getElementById('active-nodes').textContent = online;
+            }, 2000);
+        };
+        
+        // Refresh every 30 seconds
+        setInterval(() => {
+            checkNodeHealth(8545, 'base-status', 'base-status-text');
+            checkNodeHealth(8555, 'op-status', 'op-status-text');
+            checkNodeHealth(8565, 'unichain-status', 'unichain-status-text');
+            checkNodeHealth(8575, 'mode-status', 'mode-status-text');
+            checkNodeHealth(8585, 'world-status', 'world-status-text');
+            checkNodeHealth(8595, 'lisk-status', 'lisk-status-text');
+        }, 30000);
+    </script>
+</body>
+</html>

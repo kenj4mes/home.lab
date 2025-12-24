@@ -1,0 +1,200 @@
+# ==============================================================================
+# 🔧 HomeLab Development Stack - Docker Compose
+# ==============================================================================
+# Development services for Web3, 3D generation, and smart contracts:
+#   - Hardhat node (Ethereum development)
+#   - Anvil (Foundry's local testnet)
+#   - TRELLIS.2 (Image-to-3D API)
+# ==============================================================================
+
+name: homelab
+
+networks:
+  homelab:
+    name: homelab
+    external: true
+  dev-internal:
+    name: dev-internal
+    internal: true
+
+volumes:
+  hardhat-cache:
+  anvil-state:
+  trellis-outputs:
+  blockscout-dev-data:
+
+
+services:
+  # ============================================================================
+  # Hardhat Development Environment
+  # ============================================================================
+  hardhat-dev:
+    build:
+      context: ../miniapps/hardhat-dev
+      dockerfile: Dockerfile
+    container_name: hardhat-dev
+    environment:
+      - NODE_ENV=development
+      - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY:-}
+      - BASESCAN_API_KEY=${BASESCAN_API_KEY:-}
+      - BASE_RPC_URL=http://base-node:8545
+    volumes:
+      - ../miniapps/hardhat-dev:/app
+      - hardhat-cache:/app/cache
+      - hardhat-cache:/app/artifacts
+      - /app/node_modules
+    ports:
+      - "8545:8545"   # Hardhat node
+      - "8546:8546"   # WebSocket
+    networks:
+      - homelab
+      - dev-internal
+    restart: unless-stopped
+    labels:
+      - "homelab.service=hardhat-dev"
+      - "homelab.category=development"
+
+  # ============================================================================
+  # Anvil - Foundry Local Testnet
+  # ============================================================================
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: anvil
+    entrypoint: ["anvil"]
+    command:
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8547"
+      - "--chain-id"
+      - "31337"
+      - "--block-time"
+      - "1"
+      - "--accounts"
+      - "10"
+      - "--balance"
+      - "10000"
+    ports:
+      - "8547:8547"
+    networks:
+      - homelab
+      - dev-internal
+    restart: unless-stopped
+    labels:
+      - "homelab.service=anvil"
+      - "homelab.category=development"
+
+  # ============================================================================
+  # Anvil with Base Fork (Online mode)
+  # ============================================================================
+  anvil-base-fork:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: anvil-base-fork
+    entrypoint: ["anvil"]
+    command:
+      - "--fork-url"
+      - "${BASE_MAINNET_RPC:-https://mainnet.base.org}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8548"
+      - "--chain-id"
+      - "8453"
+      - "--block-time"
+      - "2"
+    ports:
+      - "8548:8548"
+    networks:
+      - homelab
+      - dev-internal
+    restart: unless-stopped
+    profiles:
+      - online
+    labels:
+      - "homelab.service=anvil-base-fork"
+      - "homelab.category=development"
+
+  # ============================================================================
+  # TRELLIS.2 - Image to 3D Generation (GPU Required)
+  # ============================================================================
+  trellis-3d:
+    build:
+      context: ../miniapps/trellis-3d
+      dockerfile: Dockerfile
+    container_name: trellis-3d
+    environment:
+      - TRELLIS_DIR=/app/trellis2
+      - MODELS_DIR=/models
+      - OUTPUT_DIR=/app/outputs
+      - MAX_RESOLUTION=${TRELLIS_MAX_RESOLUTION:-1024}
+      - PORT=5003
+    volumes:
+      - ${TRELLIS_MODELS_PATH:-/opt/homelab/models/trellis2}:/models:ro
+      - trellis-outputs:/app/outputs
+    ports:
+      - "5003:5003"
+      - "7860:7860"   # Gradio web interface
+    networks:
+      - homelab
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    profiles:
+      - gpu
+    labels:
+      - "homelab.service=trellis-3d"
+      - "homelab.category=ai"
+      - "homelab.gpu=required"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # ============================================================================
+  # Blockscout - Blockchain Explorer (for local development)
+  # ============================================================================
+  blockscout-dev:
+    image: blockscout/blockscout:latest
+    container_name: blockscout-dev
+    depends_on:
+      - anvil
+    environment:
+      - DATABASE_URL=postgresql://blockscout:blockscout@blockscout-db-dev:5432/blockscout
+      - ETHEREUM_JSONRPC_VARIANT=geth
+      - ETHEREUM_JSONRPC_HTTP_URL=http://anvil:8547
+      - NETWORK=Localhost
+      - CHAIN_ID=31337
+      - PORT=4001
+    ports:
+      - "4001:4001"
+    networks:
+      - homelab
+      - dev-internal
+    restart: unless-stopped
+    profiles:
+      - full
+    labels:
+      - "homelab.service=blockscout-dev"
+      - "homelab.category=development"
+
+  blockscout-db-dev:
+    image: postgres:15-alpine
+    container_name: blockscout-db-dev
+    environment:
+      POSTGRES_DB: blockscout
+      POSTGRES_USER: blockscout
+      POSTGRES_PASSWORD: blockscout
+    volumes:
+      - blockscout-dev-data:/var/lib/postgresql/data
+    networks:
+      - dev-internal
+    restart: unless-stopped
+    profiles:
+      - full

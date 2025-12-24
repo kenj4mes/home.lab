@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎨 Creative AI Dashboard | HomeLab</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 Creative AI Dashboard</h1>
+            <p class="subtitle">Unified access to all creative generation services</p>
+        </header>
+
+        <main>
+            <section class="services-grid">
+                <!-- Image Generation -->
+                <div class="service-card image-gen">
+                    <div class="service-icon">🖼️</div>
+                    <h2>Stable Diffusion</h2>
+                    <p>Text-to-image, img2img, inpainting with AUTOMATIC1111 WebUI</p>
+                    <div class="service-meta">
+                        <span class="tag gpu">GPU Required</span>
+                        <span class="tag">SDXL Support</span>
+                    </div>
+                    <a href="http://localhost:7860" target="_blank" class="btn primary">Open WebUI →</a>
+                </div>
+
+                <div class="service-card image-gen">
+                    <div class="service-icon">🔀</div>
+                    <h2>ComfyUI</h2>
+                    <p>Node-based workflow editor for advanced diffusion pipelines</p>
+                    <div class="service-meta">
+                        <span class="tag gpu">GPU Required</span>
+                        <span class="tag">Custom Nodes</span>
+                    </div>
+                    <a href="http://localhost:8188" target="_blank" class="btn primary">Open ComfyUI →</a>
+                </div>
+
+                <!-- Audio Generation -->
+                <div class="service-card audio-gen">
+                    <div class="service-icon">🗣️</div>
+                    <h2>Bark TTS</h2>
+                    <p>Neural text-to-speech with voice cloning and sound effects</p>
+                    <div class="service-meta">
+                        <span class="tag">Multilingual</span>
+                        <span class="tag">Sound FX</span>
+                    </div>
+                    <a href="#" onclick="testBarkAPI()" class="btn secondary">Test API</a>
+                    <span class="api-url">:5010</span>
+                </div>
+
+                <div class="service-card audio-gen">
+                    <div class="service-icon">🎤</div>
+                    <h2>Faster-Whisper</h2>
+                    <p>GPU-accelerated speech-to-text transcription</p>
+                    <div class="service-meta">
+                        <span class="tag">Real-time</span>
+                        <span class="tag">Multi-language</span>
+                    </div>
+                    <a href="#" onclick="testWhisperAPI()" class="btn secondary">Test API</a>
+                    <span class="api-url">:5011</span>
+                </div>
+
+                <div class="service-card audio-gen">
+                    <div class="service-icon">🎵</div>
+                    <h2>MusicGen</h2>
+                    <p>AI music generation from text prompts (Meta AudioCraft)</p>
+                    <div class="service-meta">
+                        <span class="tag gpu">GPU Required</span>
+                        <span class="tag">30s Max</span>
+                    </div>
+                    <a href="#" onclick="testMusicGenAPI()" class="btn secondary">Test API</a>
+                    <span class="api-url">:5012</span>
+                </div>
+
+                <!-- Video Generation -->
+                <div class="service-card video-gen">
+                    <div class="service-icon">🎬</div>
+                    <h2>Video Diffusion</h2>
+                    <p>Image-to-video generation with Stable Video Diffusion</p>
+                    <div class="service-meta">
+                        <span class="tag gpu">GPU Required</span>
+                        <span class="tag">SVD-XT</span>
+                    </div>
+                    <a href="#" onclick="testVideoAPI()" class="btn secondary">Test API</a>
+                    <span class="api-url">:5013</span>
+                </div>
+
+                <!-- 3D Generation -->
+                <div class="service-card model-gen">
+                    <div class="service-icon">🧊</div>
+                    <h2>TRELLIS.2</h2>
+                    <p>Image-to-3D model generation (Microsoft)</p>
+                    <div class="service-meta">
+                        <span class="tag gpu">24GB+ VRAM</span>
+                        <span class="tag">3D Mesh</span>
+                    </div>
+                    <span class="status">Check docker-compose.dev.yml</span>
+                </div>
+            </section>
+
+            <!-- API Testing Panel -->
+            <section class="api-panel">
+                <h2>🧪 API Playground</h2>
+                <div class="api-test">
+                    <select id="service-select">
+                        <option value="bark">Bark TTS</option>
+                        <option value="musicgen">MusicGen</option>
+                        <option value="whisper">Faster-Whisper</option>
+                        <option value="video">Video Diffusion</option>
+                    </select>
+                    <textarea id="api-input" placeholder="Enter prompt or request body...">Hello world! [laughs] How are you today?</textarea>
+                    <button onclick="testAPI()" class="btn primary">Generate</button>
+                </div>
+                <div id="api-output" class="output-panel">
+                    <p class="placeholder">Output will appear here...</p>
+                </div>
+            </section>
+
+            <!-- Service Status -->
+            <section class="status-panel">
+                <h2>📊 Service Health</h2>
+                <div id="health-status" class="health-grid">
+                    <div class="health-item" data-service="stable-diffusion">
+                        <span class="status-dot"></span>
+                        <span>Stable Diffusion</span>
+                        <span class="port">:7860</span>
+                    </div>
+                    <div class="health-item" data-service="comfyui">
+                        <span class="status-dot"></span>
+                        <span>ComfyUI</span>
+                        <span class="port">:8188</span>
+                    </div>
+                    <div class="health-item" data-service="bark-tts">
+                        <span class="status-dot"></span>
+                        <span>Bark TTS</span>
+                        <span class="port">:5010</span>
+                    </div>
+                    <div class="health-item" data-service="faster-whisper">
+                        <span class="status-dot"></span>
+                        <span>Faster-Whisper</span>
+                        <span class="port">:5011</span>
+                    </div>
+                    <div class="health-item" data-service="musicgen">
+                        <span class="status-dot"></span>
+                        <span>MusicGen</span>
+                        <span class="port">:5012</span>
+                    </div>
+                    <div class="health-item" data-service="video-diffusion">
+                        <span class="status-dot"></span>
+                        <span>Video Diffusion</span>
+                        <span class="port">:5013</span>
+                    </div>
+                </div>
+                <button onclick="checkAllHealth()" class="btn secondary">Refresh Status</button>
+            </section>
+        </main>
+
+        <footer>
+            <p>🏠 HomeLab Creative Stack | GPU-accelerated AI generation</p>
+        </footer>
+    </div>
+
+    <script>
+        const services = {
+            'stable-diffusion': { port: 7860, endpoint: '/sdapi/v1/options' },
+            'comfyui': { port: 8188, endpoint: '/' },
+            'bark-tts': { port: 5010, endpoint: '/health' },
+            'faster-whisper': { port: 5011, endpoint: '/health' },
+            'musicgen': { port: 5012, endpoint: '/health' },
+            'video-diffusion': { port: 5013, endpoint: '/health' }
+        };
+
+        async function checkHealth(service) {
+            const item = document.querySelector(`[data-service="${service}"]`);
+            const dot = item.querySelector('.status-dot');
+            
+            try {
+                const response = await fetch(`http://localhost:${services[service].port}${services[service].endpoint}`, {
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+                dot.className = 'status-dot online';
+            } catch (e) {
+                dot.className = 'status-dot offline';
+            }
+        }
+
+        async function checkAllHealth() {
+            for (const service of Object.keys(services)) {
+                checkHealth(service);
+            }
+        }
+
+        async function testAPI() {
+            const service = document.getElementById('service-select').value;
+            const input = document.getElementById('api-input').value;
+            const output = document.getElementById('api-output');
+            
+            output.innerHTML = '<p class="loading">Generating...</p>';
+            
+            try {
+                let url, body;
+                switch (service) {
+                    case 'bark':
+                        url = 'http://localhost:5010/synthesize';
+                        body = { text: input, output_format: 'base64' };
+                        break;
+                    case 'musicgen':
+                        url = 'http://localhost:5012/generate';
+                        body = { prompt: input, duration: 10, output_format: 'base64' };
+                        break;
+                    default:
+                        output.innerHTML = '<p>Service not yet implemented in playground</p>';
+                        return;
+                }
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                const data = await response.json();
+                
+                if (data.audio) {
+                    output.innerHTML = `
+                        <audio controls>
+                            <source src="data:audio/wav;base64,${data.audio}" type="audio/wav">
+                        </audio>
+                        <p>Generated successfully!</p>
+                    `;
+                } else if (data.error) {
+                    output.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                }
+            } catch (e) {
+                output.innerHTML = `<p class="error">Error: ${e.message}</p>`;
+            }
+        }
+
+        // Check health on load
+        window.onload = checkAllHealth;
+    </script>
+</body>
+</html>

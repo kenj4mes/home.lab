@@ -1,0 +1,330 @@
+# ==============================================================================
+# 🏠 HomeLab Core Services - Docker Compose
+# ==============================================================================
+# HomeLab - Self-Hosted Infrastructure Stack
+# 
+# Services: Jellyfin, qBittorrent, Kiwix, BookStack, Nginx Proxy Manager,
+#           Ollama, Open-WebUI, Portainer
+#
+# Usage:
+#   docker compose up -d           # Start all services
+#   docker compose logs -f         # View logs
+#   docker compose pull && docker compose up -d  # Update all
+#
+# Health Checks: All services include health checks for reliability
+# Security: Services run with restricted privileges where possible
+# ==============================================================================
+
+networks:
+  homelab:
+    name: homelab
+    driver: bridge
+  # Internal network for database connections (not exposed)
+  internal:
+    name: homelab-internal
+    driver: bridge
+    internal: true
+
+volumes:
+  mysql-data:
+  bookstack-uploads:
+  bookstack-storage:
+  nginx-data:
+  nginx-letsencrypt:
+  portainer-data:
+  open-webui-data:
+
+services:
+  # ============================================================================
+  # 🎬 JELLYFIN - Media Server (Open-source Netflix alternative)
+  # ============================================================================
+  # Access: http://<IP>:8096
+  # Docs: https://jellyfin.org/docs/
+  jellyfin:
+    image: ghcr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - JELLYFIN_PublishedServerUrl=${JELLYFIN_URL:-http://localhost:8096}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/jellyfin/config:/config
+      - ${MEDIA_PATH:-/srv/Tumadre}/Series:/data/tvshows
+      - ${MEDIA_PATH:-/srv/Tumadre}/Movies:/data/movies
+      - ${MEDIA_PATH:-/srv/Tumadre}/Music:/data/music
+      - ${MEDIA_PATH:-/srv/Tumadre}/Photos:/data/photos
+    ports:
+      - "8096:8096"
+      - "8920:8920"
+      - "7359:7359/udp"
+      - "1900:1900/udp"
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Uncomment for NVIDIA GPU transcoding:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  # ============================================================================
+  # 📥 QBITTORRENT - Torrent Client
+  # ============================================================================
+  # Access: http://<IP>:8080
+  # Default: admin / (check container logs for temp password)
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - WEBUI_PORT=8080
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/qbittorrent/config:/config
+      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - homelab
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 📚 KIWIX - Offline Wikipedia & ZIM Content Server
+  # ============================================================================
+  # Access: http://<IP>:8081
+  # Download ZIM files: Run ./scripts/download-all.sh first!
+  kiwix:
+    image: ghcr.io/kiwix/kiwix-serve:latest
+    container_name: kiwix
+    stdin_open: true
+    tty: true
+    command: 
+      - sh
+      - -c
+      - |
+        if ls /zim/*.zim 1> /dev/null 2>&1; then
+          echo "Found ZIM files, starting server..."
+          exec kiwix-serve --port=8081 /zim/*.zim
+        else
+          echo "No ZIM files found in /zim/"
+          echo "Run ./scripts/download-all.sh to download content"
+          echo "Waiting for files... (restart container after adding ZIMs)"
+          tail -f /dev/null
+        fi
+    volumes:
+      - ${MEDIA_PATH:-/srv/Tumadre}/ZIM:/zim:ro
+    ports:
+      - "8081:8081"
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD-SHELL", "ls /zim/*.zim 1>/dev/null 2>&1 && curl -f http://localhost:8081 || exit 0"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 📝 BOOKSTACK - Personal Wiki & Documentation
+  # ============================================================================
+  # Access: http://<IP>:8082
+  # Default: admin@admin.com / password (CHANGE IMMEDIATELY)
+  bookstack-db:
+    image: mysql:8.0
+    container_name: bookstack-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${BOOKSTACK_DB_ROOT_PASSWORD:-CHANGEME_ROOT}
+      - MYSQL_DATABASE=bookstack
+      - MYSQL_USER=bookstack
+      - MYSQL_PASSWORD=${BOOKSTACK_DB_PASSWORD:-CHANGEME_DB}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${BOOKSTACK_DB_ROOT_PASSWORD:-CHANGEME_ROOT}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  bookstack:
+    image: lscr.io/linuxserver/bookstack:latest
+    container_name: bookstack
+    depends_on:
+      bookstack-db:
+        condition: service_healthy
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - APP_URL=${BOOKSTACK_URL:-http://localhost:8082}
+      - DB_HOST=bookstack-db
+      - DB_PORT=3306
+      - DB_USER=bookstack
+      - DB_PASS=${BOOKSTACK_DB_PASSWORD:-CHANGEME_DB}
+      - DB_DATABASE=bookstack
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/bookstack/config:/config
+    ports:
+      - "8082:80"
+    networks:
+      - homelab
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🌐 NGINX PROXY MANAGER - Reverse Proxy & HTTPS
+  # ============================================================================
+  # Access: http://<IP>:81 (Admin UI)
+  # Default: admin@example.com / changeme (CHANGE IMMEDIATELY)
+  nginx-proxy:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+    volumes:
+      - nginx-data:/data
+      - nginx-letsencrypt:/etc/letsencrypt
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:81"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🤖 OLLAMA - Local LLM Server
+  # ============================================================================
+  # API: http://<IP>:11434
+  # Usage: curl http://localhost:11434/api/generate -d '{"model":"mistral","prompt":"Hello"}'
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Uncomment for NVIDIA GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🖥️ OPEN WEBUI - Chat Interface for Ollama
+  # ============================================================================
+  # Access: http://<IP>:3000
+  # First user to sign up becomes admin
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      # Base blockchain integration (optional, for RPC queries)
+      - BASE_RPC_URL=${BASE_RPC_URL:-}
+    volumes:
+      - open-webui-data:/app/backend/data
+    ports:
+      - "3000:8080"
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 📊 PORTAINER - Docker Management UI
+  # ============================================================================
+  # Access: http://<IP>:9000
+  # Create admin account on first visit
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer-data:/data
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🔄 WATCHTOWER - Automatic Docker Image Updates (Optional)
+  # ============================================================================
+  # Checks for updates daily at 2 AM
+  # Uncomment to enable auto-updates
+  # watchtower:
+  #   image: containrrr/watchtower
+  #   container_name: watchtower
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   command: --schedule "0 0 2 * * *" --cleanup
+  #   restart: unless-stopped

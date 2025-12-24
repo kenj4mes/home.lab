@@ -1,0 +1,49 @@
+# ==============================================================================
+# CREATIVE AI DATA VOLUMES - Local Path Configuration
+# ==============================================================================
+#
+# Override for Creative AI compose to use local data paths for models and outputs
+#
+# Usage:
+#   docker compose -f docker-compose.creative.yml -f docker-compose.creative-local.yml --profile creative up -d
+#
+# ==============================================================================
+
+name: homelab
+
+services:
+  # Stable Diffusion WebUI
+  stable-diffusion:
+    volumes:
+      - ../data/models/stable-diffusion:/app/models
+      - ../data/volumes/stable-diffusion/outputs:/app/outputs
+      - ../data/volumes/stable-diffusion/config:/app/config
+
+  # ComfyUI
+  comfyui:
+    volumes:
+      - ../data/models/comfyui:/app/models
+      - ../data/volumes/comfyui/outputs:/app/output
+      - ../data/volumes/comfyui/custom_nodes:/app/custom_nodes
+
+  # Bark TTS
+  bark-tts:
+    volumes:
+      - ../data/models/bark:/app/models
+
+  # Faster-Whisper (Speech-to-Text)
+  faster-whisper:
+    volumes:
+      - ../data/models/whisper:/app/models
+
+  # MusicGen
+  musicgen:
+    volumes:
+      - ../data/models/musicgen:/app/models
+      - ../data/volumes/musicgen/outputs:/app/outputs
+
+  # Stable Video Diffusion
+  video-diffusion:
+    volumes:
+      - ../data/models/video-diffusion:/app/models
+      - ../data/volumes/video-diffusion/outputs:/app/outputs

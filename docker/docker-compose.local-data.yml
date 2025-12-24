@@ -1,0 +1,67 @@
+# ==============================================================================
+# HOMELAB DATA VOLUMES - Local Path Configuration
+# ==============================================================================
+# 
+# This file provides local bind mount overrides for all HomeLab services.
+# Using local paths makes the entire installation portable and backup-friendly.
+#
+# Usage:
+#   docker compose -f docker-compose.windows.yml -f docker-compose.local-data.yml up -d
+#
+# ==============================================================================
+
+name: homelab
+
+services:
+  # ==========================================================================
+  # CORE SERVICES
+  # ==========================================================================
+  
+  jellyfin:
+    volumes:
+      - ../data/volumes/jellyfin/config:/config
+      - ../data/volumes/jellyfin/cache:/cache
+      - ${MEDIA_PATH:-../data/media}:/media:ro
+
+  bookstack:
+    volumes:
+      - ../data/volumes/bookstack:/config
+
+  kiwix:
+    volumes:
+      - ../data/zim:/data:ro
+
+  portainer:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ../data/volumes/portainer:/data
+
+  qbittorrent:
+    volumes:
+      - ../data/volumes/qbittorrent:/config
+      - ${DOWNLOADS_PATH:-../data/downloads}:/downloads
+
+  # ==========================================================================
+  # AI SERVICES
+  # ==========================================================================
+  
+  ollama:
+    volumes:
+      - ../data/ollama:/root/.ollama
+
+  open-webui:
+    volumes:
+      - ../data/volumes/open-webui:/app/backend/data
+
+  # ==========================================================================
+  # DATABASE
+  # ==========================================================================
+  
+  mariadb:
+    volumes:
+      - ../data/volumes/mariadb:/var/lib/mysql
+
+# Override network if needed
+networks:
+  homelab:
+    name: homelab

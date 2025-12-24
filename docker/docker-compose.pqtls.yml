@@ -1,0 +1,195 @@
+# ==============================================================================
+# 🔐 HomeLab Post-Quantum TLS Stack - Docker Compose
+# ==============================================================================
+# Post-quantum cryptography enabled reverse proxy and security services.
+#
+# Services:
+#   - pq-nginx:     OpenQuantumSafe NGINX with hybrid PQ-TLS
+#   - vault:        HashiCorp Vault for secrets management
+#
+# Usage:
+#   docker compose -f docker-compose.pqtls.yml up -d
+#
+# Features:
+#   - Hybrid classic + post-quantum key exchange (X25519 + Kyber768)
+#   - TLS 1.3 with quantum-safe algorithms
+#   - Automatic certificate management
+#   - Reverse proxy to all HomeLab services
+#
+# ==============================================================================
+
+name: homelab
+
+networks:
+  homelab:
+    name: homelab
+    external: true
+  pqtls-internal:
+    name: pqtls-internal
+    internal: true
+
+volumes:
+  vault-data:
+    name: homelab-vault-data
+  pq-nginx-certs:
+    name: homelab-pq-nginx-certs
+
+# ------------------------------------------------------------------------------
+# Common settings
+# ------------------------------------------------------------------------------
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # ============================================================================
+  # 🔐 Post-Quantum TLS NGINX Reverse Proxy
+  # ============================================================================
+  # OpenQuantumSafe NGINX with OQS-OpenSSL provider for hybrid PQ-TLS.
+  # Supports Kyber768, p256-Kyber768, X25519-Kyber768 key exchange.
+  # URL: https://localhost (port 443)
+  # ============================================================================
+  pq-nginx:
+    image: openquantumsafe/nginx:latest
+    container_name: pq-nginx
+    profiles:
+      - pqtls
+      - security
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ${PQNGINX_CONFIG_PATH:-./configs/pq-nginx}/conf.d:/opt/nginx/conf.d:ro
+      - ${PQNGINX_CERTS_PATH:-./configs/pq-nginx/certs}:/opt/nginx/certs:ro
+      - pq-nginx-certs:/etc/letsencrypt
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+    networks:
+      - homelab
+      - pqtls-internal
+    <<: *common
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:443/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "com.homelab.service=pq-nginx"
+      - "com.homelab.category=security"
+      - "com.homelab.description=Post-Quantum TLS Reverse Proxy"
+
+  # ============================================================================
+  # 🗝️ HashiCorp Vault - Secrets Management
+  # ============================================================================
+  # Secure secrets storage with API access for all services.
+  # Features: Dynamic secrets, encryption, PKI, transit encryption
+  # URL: http://localhost:8200
+  # ============================================================================
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: vault
+    profiles:
+      - pqtls
+      - security
+      - secrets
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault-data:/vault/data
+      - ${VAULT_CONFIG_PATH:-./configs/vault}:/vault/config:ro
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=${VAULT_DEV_TOKEN:-root-token}
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+      - VAULT_ADDR=http://127.0.0.1:8200
+    networks:
+      - homelab
+      - pqtls-internal
+    <<: *common
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.homelab.service=vault"
+      - "com.homelab.category=security"
+      - "com.homelab.description=HashiCorp Vault Secrets Manager"
+
+  # ============================================================================
+  # 📜 Certificate Generator
+  # ============================================================================
+  # Generates self-signed PQ-TLS certificates for development.
+  # Run once to create certificates, then stop.
+  # ============================================================================
+  pq-cert-gen:
+    image: openquantumsafe/curl:latest
+    container_name: pq-cert-gen
+    profiles:
+      - setup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ ! -f /certs/fullchain.pem ]; then
+          echo "Generating PQ-TLS certificates..."
+          openssl req -x509 -new -newkey dilithium3 \
+            -keyout /certs/privkey.pem \
+            -out /certs/fullchain.pem \
+            -nodes -days 365 \
+            -subj "/CN=homelab.local/O=HomeLab/C=US"
+          echo "Certificates generated successfully!"
+        else
+          echo "Certificates already exist."
+        fi
+    volumes:
+      - ${PQNGINX_CERTS_PATH:-./configs/pq-nginx/certs}:/certs
+    networks:
+      - pqtls-internal
+
+# ==============================================================================
+# Notes:
+# ==============================================================================
+#
+# Post-Quantum Algorithms Supported:
+#   Key Exchange:
+#     - Kyber512, Kyber768, Kyber1024 (ML-KEM)
+#     - p256-Kyber768 (hybrid)
+#     - X25519-Kyber768 (hybrid)
+#     - NTRU-HPS, NTRU-HRSS
+#     - SABER
+#
+#   Signatures:
+#     - Dilithium2, Dilithium3, Dilithium5 (ML-DSA)
+#     - Falcon-512, Falcon-1024
+#     - SPHINCS+
+#
+# Configuration:
+#   The pq-nginx service uses OQS-OpenSSL provider.
+#   Configure curves in nginx config:
+#     ssl_conf_command "CurvePreferences" "X25519:Kyber768:P256_Kyber768";
+#
+# Vault Integration:
+#   1. Initialize Vault (first run):
+#      docker exec vault vault operator init
+#   
+#   2. Store secrets:
+#      docker exec vault vault kv put secret/homelab/db password=xxx
+#
+#   3. Read from services via REST API:
+#      curl -H "X-Vault-Token: $TOKEN" http://vault:8200/v1/secret/data/homelab/db
+#
+# Service URLs (via PQ-TLS):
+#   https://homelab.local/          → Landing page
+#   https://homelab.local/jellyfin  → Jellyfin
+#   https://homelab.local/webui     → Open-WebUI
+#   https://homelab.local/grafana   → Grafana
+#   https://homelab.local/vault     → Vault UI
+#
+# ==============================================================================

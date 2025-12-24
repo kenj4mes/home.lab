@@ -1,0 +1,93 @@
+# ==============================================================================
+# 🛡️ Pi-hole - Network-wide Ad Blocking & DNS
+# ==============================================================================
+# HomeLab - Self-Hosted Infrastructure Stack
+#
+# NOTE: This is a separate compose file because Pi-hole needs port 80.
+#       If using Nginx Proxy Manager, run Pi-hole on a different IP or
+#       change Pi-hole's web port.
+#
+# Usage:
+#   docker compose -f docker-compose.pihole.yml up -d
+#
+# After deployment:
+#   1. Set your router's DNS to this server's IP
+#   2. Or configure individual devices to use this DNS
+# ==============================================================================
+
+version: "3.8"
+
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    hostname: pihole
+    # For DHCP to work, container needs host network mode
+    # Uncomment if you want Pi-hole to be your DHCP server:
+    # network_mode: host
+    environment:
+      # Timezone
+      TZ: ${TZ:-America/New_York}
+      # Web admin password (CHANGE THIS!)
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD:-correcthorsebatterystaple}
+      # DNS settings
+      FTLCONF_dns_upstreams: "1.1.1.1;1.0.0.1;8.8.8.8;8.8.4.4"
+      # Optional: Set a custom domain
+      FTLCONF_dns_domain: "local"
+      # Enable query logging
+      FTLCONF_dns_queryLogging: "true"
+      # Interface to listen on (all interfaces)
+      FTLCONF_dns_listeningMode: "all"
+    volumes:
+      # Pi-hole configuration
+      - ./pihole/etc-pihole:/etc/pihole
+      # DNSMasq configuration
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    ports:
+      # DNS
+      - "53:53/tcp"
+      - "53:53/udp"
+      # Web interface (change if using Nginx Proxy Manager on 80)
+      - "8053:80/tcp"
+      # HTTPS admin (optional)
+      # - "443:443/tcp"
+      # DHCP (if enabled)
+      # - "67:67/udp"
+    cap_add:
+      # Required for DHCP
+      - NET_ADMIN
+    restart: unless-stopped
+
+# ==============================================================================
+# 📋 CUSTOM DNS RECORDS
+# ==============================================================================
+# Add these to ./pihole/etc-pihole/custom.list after deployment:
+#
+# 192.168.1.100 media.local
+# 192.168.1.100 downloads.local  
+# 192.168.1.100 wiki.local
+# 192.168.1.100 docs.local
+# 192.168.1.100 home.local
+# 192.168.1.100 ai.local
+# 192.168.1.100 portainer.local
+#
+# Replace 192.168.1.100 with your Docker host's IP
+# ==============================================================================
+
+# ==============================================================================
+# 🔧 ADLISTS (Add via Pi-hole Admin UI)
+# ==============================================================================
+# Recommended blocklists:
+#
+# Steven Black's Unified Hosts:
+# https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+#
+# OISD (Big list, comprehensive):
+# https://big.oisd.nl/
+#
+# AdGuard DNS filter:
+# https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
+#
+# Malware domains:
+# https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt
+# ==============================================================================

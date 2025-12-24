@@ -1,0 +1,227 @@
+# ==============================================================================
+# 🔊 HomeLab - SDR & Radio Security Stack
+# ==============================================================================
+# Software Defined Radio tools for cellular security research
+# 
+# ⚠️ LEGAL WARNING: These tools are for RESEARCH ONLY
+# Check local laws before using cellular monitoring tools
+# ==============================================================================
+
+name: homelab
+
+services:
+  # ============================================================================
+  # IMSI Catcher Detection & GSM Analysis
+  # ============================================================================
+  
+  imsi-catcher:
+    build:
+      context: ../miniapps/imsi-catcher
+      dockerfile: Dockerfile
+    container_name: imsi-catcher
+    image: homelab/imsi-catcher:latest
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - imsi-data:/app/data
+      - imsi-logs:/app/logs
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - TZ=${TZ:-UTC}
+    profiles:
+      - sdr
+      - research
+    labels:
+      - "com.homelab.description=GSM IMSI Catcher Detection"
+      - "com.homelab.category=sdr"
+
+  # ============================================================================
+  # Rayhunter - EFF IMSI Catcher Detector
+  # ============================================================================
+  
+  rayhunter-web:
+    build:
+      context: ../miniapps/rayhunter
+      dockerfile: Dockerfile
+    container_name: rayhunter-web
+    image: homelab/rayhunter:latest
+    restart: unless-stopped
+    ports:
+      - "8580:8080"
+    volumes:
+      - rayhunter-data:/app/data
+      - rayhunter-logs:/app/logs
+    environment:
+      - TZ=${TZ:-UTC}
+      - RUST_LOG=info
+    profiles:
+      - sdr
+      - research
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.homelab.description=EFF Rayhunter IMSI Detector"
+      - "com.homelab.category=sdr"
+
+  # ============================================================================
+  # LTESniffer - LTE Traffic Analysis
+  # ============================================================================
+  
+  ltesniffer:
+    build:
+      context: ../miniapps/ltesniffer
+      dockerfile: Dockerfile
+    container_name: ltesniffer
+    image: homelab/ltesniffer:latest
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - ltesniffer-data:/app/data
+      - ltesniffer-pcap:/app/pcap
+    environment:
+      - TZ=${TZ:-UTC}
+    profiles:
+      - sdr
+      - research
+      - advanced
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+    labels:
+      - "com.homelab.description=LTE Downlink/Uplink Eavesdropper"
+      - "com.homelab.category=sdr"
+
+  # ============================================================================
+  # srsRAN 5G gNB - Software 5G Base Station
+  # ============================================================================
+  
+  srsran-gnb:
+    build:
+      context: ../miniapps/srsran
+      dockerfile: Dockerfile
+    container_name: srsran-gnb
+    image: homelab/srsran-gnb:latest
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - srsran-config:/app/configs
+      - srsran-logs:/app/logs
+    environment:
+      - TZ=${TZ:-UTC}
+      - UHD_IMAGES_DIR=/usr/share/uhd/images
+    profiles:
+      - sdr
+      - 5g
+      - advanced
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+    labels:
+      - "com.homelab.description=srsRAN 5G gNB Base Station"
+      - "com.homelab.category=sdr"
+
+  # ============================================================================
+  # DragonOS - SDR Linux Distribution (Container)
+  # ============================================================================
+  
+  dragonos:
+    image: ubuntu:22.04
+    container_name: dragonos-tools
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - dragonos-home:/home/dragon
+      - ${DRAGONOS_IMG:-/dev/null}:/mnt/dragonos.img:ro
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - TZ=${TZ:-UTC}
+    profiles:
+      - sdr
+      - dragonos
+    command: >
+      bash -c "
+        apt-get update && 
+        apt-get install -y gnuradio gr-osmosdr rtl-sdr hackrf &&
+        tail -f /dev/null
+      "
+    labels:
+      - "com.homelab.description=DragonOS SDR Tools Container"
+      - "com.homelab.category=sdr"
+
+  # ============================================================================
+  # SDR Web Dashboard
+  # ============================================================================
+  
+  sdr-dashboard:
+    build:
+      context: ../miniapps/sdr-dashboard
+      dockerfile: Dockerfile
+    container_name: sdr-dashboard
+    image: homelab/sdr-dashboard:latest
+    restart: unless-stopped
+    ports:
+      - "8585:8080"
+    environment:
+      - TZ=${TZ:-UTC}
+      - IMSI_CATCHER_URL=http://localhost:4729
+      - RAYHUNTER_URL=http://localhost:8580
+      - LTESNIFFER_URL=http://localhost:8581
+    volumes:
+      - sdr-dashboard-data:/app/data
+    profiles:
+      - sdr
+    depends_on:
+      - rayhunter-web
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.homelab.description=SDR Tools Web Dashboard"
+      - "com.homelab.category=sdr"
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+
+volumes:
+  imsi-data:
+    name: homelab_imsi-data
+  imsi-logs:
+    name: homelab_imsi-logs
+  rayhunter-data:
+    name: homelab_rayhunter-data
+  rayhunter-logs:
+    name: homelab_rayhunter-logs
+  ltesniffer-data:
+    name: homelab_ltesniffer-data
+  ltesniffer-pcap:
+    name: homelab_ltesniffer-pcap
+  srsran-config:
+    name: homelab_srsran-config
+  srsran-logs:
+    name: homelab_srsran-logs
+  dragonos-home:
+    name: homelab_dragonos-home
+  sdr-dashboard-data:
+    name: homelab_sdr-dashboard-data
+
+# ==============================================================================
+# Networks (uses host network for SDR access)
+# ==============================================================================

@@ -1,0 +1,68 @@
+# ==============================================================================
+# 📤 Promtail Configuration for HomeLab
+# ==============================================================================
+# Log collector configuration for Loki
+# ==============================================================================
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # --------------------------------------------------------------------------
+  # Docker container logs
+  # --------------------------------------------------------------------------
+  - job_name: containers
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: containerlogs
+          __path__: /var/lib/docker/containers/*/*log
+
+    pipeline_stages:
+      - json:
+          expressions:
+            output: log
+            stream: stream
+            attrs:
+      - json:
+          expressions:
+            tag:
+          source: attrs
+      - regex:
+          expression: (?P<container_name>(?:[a-zA-Z0-9][a-zA-Z0-9_.-]+))
+          source: tag
+      - labels:
+          stream:
+          container_name:
+      - output:
+          source: output
+
+  # --------------------------------------------------------------------------
+  # System logs (syslog)
+  # --------------------------------------------------------------------------
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          __path__: /var/log/syslog
+
+  # --------------------------------------------------------------------------
+  # HomeLab script logs
+  # --------------------------------------------------------------------------
+  - job_name: homelab
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: homelab
+          __path__: /var/log/homelab/*.log

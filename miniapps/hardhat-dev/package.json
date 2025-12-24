@@ -1,0 +1,46 @@
+{
+  "name": "homelab-hardhat",
+  "version": "1.0.0",
+  "description": "HomeLab Smart Contract Development - Base L2",
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:gas": "REPORT_GAS=true hardhat test",
+    "node": "hardhat node --hostname 0.0.0.0",
+    "deploy": "hardhat run scripts/deploy.ts",
+    "deploy:base": "hardhat run scripts/deploy.ts --network base",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network base-sepolia",
+    "anvil": "anvil --host 0.0.0.0 --port 8545",
+    "anvil:fork": "anvil --fork-url https://mainnet.base.org --host 0.0.0.0",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "lint:fix": "solhint 'contracts/**/*.sol' --fix",
+    "format": "prettier --write 'contracts/**/*.sol' 'scripts/**/*.ts' 'test/**/*.ts'",
+    "verify": "hardhat verify",
+    "clean": "hardhat clean && rm -rf cache artifacts"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0",
+    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "ethers": "^6.13.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@typechain/hardhat": "^9.0.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^22.0.0",
+    "chai": "^4.3.0",
+    "hardhat": "^3.0.0",
+    "hardhat-gas-reporter": "^2.0.0",
+    "prettier": "^3.3.0",
+    "prettier-plugin-solidity": "^1.4.0",
+    "solhint": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

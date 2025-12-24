@@ -1,0 +1,118 @@
+# ============================================================================
+# docker-compose.quantum.yml - Quantum Computing Services
+# ============================================================================
+# Post-quantum cryptography and quantum simulation services for HomeLab.
+#
+# Services:
+#   - quantum-rng: Quantum Random Number Generator
+#   - quantum-simulator: Qiskit/Cirq/PennyLane circuit simulator
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.quantum.yml up -d
+#
+# ============================================================================
+
+name: homelab
+
+networks:
+  homelab:
+    external: true
+
+services:
+  # ---------------------------------------------------------------------------
+  # Quantum Random Number Generator
+  # ---------------------------------------------------------------------------
+  # Provides quantum-derived entropy via REST API
+  # Endpoint: http://quantum-rng:5000
+  # ---------------------------------------------------------------------------
+  quantum-rng:
+    build:
+      context: ../miniapps/quantum-rng
+      dockerfile: Dockerfile
+    image: homelab/quantum-rng:latest
+    container_name: quantum-rng
+    restart: unless-stopped
+    networks:
+      - homelab
+    ports:
+      - "5001:5000"
+    environment:
+      - QRNG_MAX_BYTES=1024
+      - QRNG_CACHE_SIZE=4096
+      - QRNG_ENABLE_REMOTE=${QRNG_ENABLE_REMOTE:-true}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.homelab.service=quantum-rng"
+      - "com.homelab.category=quantum"
+      - "com.homelab.description=Quantum Random Number Generator"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # ---------------------------------------------------------------------------
+  # Quantum Circuit Simulator
+  # ---------------------------------------------------------------------------
+  # Executes quantum circuits using Qiskit, Cirq, PennyLane
+  # Endpoint: http://quantum-simulator:5000
+  # ---------------------------------------------------------------------------
+  quantum-simulator:
+    build:
+      context: ../miniapps/quantum-simulator
+      dockerfile: Dockerfile
+    image: homelab/quantum-simulator:latest
+    container_name: quantum-simulator
+    restart: unless-stopped
+    networks:
+      - homelab
+    ports:
+      - "5002:5000"
+    environment:
+      - QUANTUM_MAX_QUBITS=${QUANTUM_MAX_QUBITS:-20}
+      - QUANTUM_MAX_SHOTS=${QUANTUM_MAX_SHOTS:-10000}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.homelab.service=quantum-simulator"
+      - "com.homelab.category=quantum"
+      - "com.homelab.description=Quantum Circuit Simulator"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+# ============================================================================
+# Notes:
+# ============================================================================
+# 
+# Post-Quantum TLS:
+#   The quantum-rng service can provide entropy for PQ key generation.
+#   Configure nginx-proxy with the 99-pq-ssl.conf for hybrid TLS.
+#
+# Integration:
+#   - Open-WebUI: Create custom tools calling the simulator API
+#   - Home Assistant: Use REST commands for quantum-powered automations
+#   - Scripts: Use quantum-rng for secure secret generation
+#
+# Access URLs (via Nginx Proxy Manager):
+#   - quantum.base.local → quantum-simulator:5000
+#   - rng.base.local → quantum-rng:5000
+#
+# ============================================================================

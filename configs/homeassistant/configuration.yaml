@@ -1,0 +1,233 @@
+# Home Assistant Configuration Template
+# ==============================================================================
+# This is a starter configuration.yaml for Home Assistant
+# Location: /opt/homelab/homeassistant/configuration.yaml (Docker)
+#           /config/configuration.yaml (HA OS on Pi)
+# ==============================================================================
+
+# Core Configuration
+homeassistant:
+  name: Home
+  unit_system: imperial  # or 'metric'
+  time_zone: America/New_York
+  # Customize location for weather/sun
+  latitude: 40.7128
+  longitude: -74.0060
+  elevation: 10
+  # Currency
+  currency: USD
+  # Language
+  language: en
+
+# Enable default integrations
+default_config:
+
+# Text to Speech
+tts:
+  - platform: google_translate
+
+# HTTP Configuration
+http:
+  # Uncomment if behind Nginx Proxy Manager
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 192.168.1.0/24    # Your local network
+    - 172.16.0.0/12     # Docker network
+
+# Recorder (Database)
+recorder:
+  db_url: sqlite:////config/home-assistant_v2.db
+  purge_keep_days: 10
+  commit_interval: 1
+
+# Logger
+logger:
+  default: info
+  logs:
+    homeassistant.core: warning
+    homeassistant.components.http: warning
+
+# ==============================================================================
+# AUTOMATION EXAMPLES
+# ==============================================================================
+
+automation:
+  # Turn on lights at sunset
+  - alias: "Lights on at Sunset"
+    trigger:
+      - platform: sun
+        event: sunset
+        offset: "-00:30:00"  # 30 min before sunset
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.living_room
+
+  # Turn off lights at midnight
+  - alias: "Lights off at Midnight"
+    trigger:
+      - platform: time
+        at: "00:00:00"
+    action:
+      - service: light.turn_off
+        target:
+          entity_id: all
+
+  # Motion-activated lights
+  - alias: "Motion Lights"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.motion_sensor
+        to: "on"
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.hallway
+      - delay:
+          minutes: 5
+      - service: light.turn_off
+        target:
+          entity_id: light.hallway
+
+# ==============================================================================
+# SCRIPT EXAMPLES
+# ==============================================================================
+
+script:
+  # Movie mode
+  movie_mode:
+    alias: "Movie Mode"
+    sequence:
+      - service: light.turn_off
+        target:
+          entity_id: light.living_room
+      - service: light.turn_on
+        target:
+          entity_id: light.tv_backlight
+        data:
+          brightness: 50
+
+  # Good morning routine
+  good_morning:
+    alias: "Good Morning"
+    sequence:
+      - service: light.turn_on
+        target:
+          entity_id: light.bedroom
+        data:
+          brightness: 100
+          transition: 60  # Gradual over 60 seconds
+      - service: tts.google_translate_say
+        data:
+          entity_id: media_player.kitchen_speaker
+          message: "Good morning! The weather today is {{ states('weather.home') }}."
+
+# ==============================================================================
+# SENSOR EXAMPLES
+# ==============================================================================
+
+sensor:
+  # Time & Date
+  - platform: time_date
+    display_options:
+      - time
+      - date
+      - date_time
+
+  # System Monitor
+  - platform: systemmonitor
+    resources:
+      - type: disk_use_percent
+        arg: /
+      - type: memory_use_percent
+      - type: processor_use
+      - type: last_boot
+
+  # Command Line (Custom)
+  - platform: command_line
+    name: "CPU Temperature"
+    command: "cat /sys/class/thermal/thermal_zone0/temp"
+    unit_of_measurement: "°C"
+    value_template: "{{ value | multiply(0.001) | round(1) }}"
+
+# ==============================================================================
+# TEMPLATE SENSORS
+# ==============================================================================
+
+template:
+  - sensor:
+      - name: "HomeLab Status"
+        state: >
+          {% if is_state('binary_sensor.proxmox', 'on') %}
+            Online
+          {% else %}
+            Offline
+          {% endif %}
+        icon: mdi:server
+
+# ==============================================================================
+# INPUT HELPERS
+# ==============================================================================
+
+input_boolean:
+  vacation_mode:
+    name: Vacation Mode
+    icon: mdi:beach
+
+input_number:
+  bedroom_brightness:
+    name: Bedroom Brightness
+    min: 0
+    max: 100
+    step: 10
+
+input_select:
+  home_mode:
+    name: Home Mode
+    options:
+      - Home
+      - Away
+      - Night
+      - Guest
+
+# ==============================================================================
+# GROUPS
+# ==============================================================================
+
+group:
+  living_room_lights:
+    name: Living Room Lights
+    entities:
+      - light.living_room_main
+      - light.living_room_lamp
+      - light.tv_backlight
+
+# ==============================================================================
+# PANELS / CUSTOM CARDS
+# ==============================================================================
+
+panel_custom:
+  - name: homelab-panel
+    sidebar_title: HomeLab
+    sidebar_icon: mdi:server-network
+    url_path: homelab
+    module_url: /local/homelab-panel.js
+
+# ==============================================================================
+# REST COMMANDS (for Ollama integration)
+# ==============================================================================
+
+rest_command:
+  ask_ollama:
+    url: "http://192.168.1.100:11434/api/generate"
+    method: POST
+    content_type: "application/json"
+    payload: '{"model": "mistral", "prompt": "{{ prompt }}", "stream": false}'
+
+# ==============================================================================
+# SHELL COMMANDS
+# ==============================================================================
+
+shell_command:
+  backup_ha: "/config/scripts/backup.sh"
+  restart_container: "docker restart {{ container }}"

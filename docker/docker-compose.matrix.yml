@@ -1,0 +1,168 @@
+# ==============================================================================
+# 💬 HomeLab - Matrix Synapse Server (Secure Communications)
+# ==============================================================================
+# Self-hosted Matrix server for end-to-end encrypted messaging
+# Based on GrapheneOS Matrix deployment patterns
+# ==============================================================================
+
+name: homelab
+
+services:
+  # ============================================================================
+  # Matrix Synapse Homeserver
+  # ============================================================================
+  
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: synapse
+    restart: unless-stopped
+    ports:
+      - "8448:8448"   # Federation port
+      - "8008:8008"   # Client-Server API
+    volumes:
+      - synapse-data:/data
+      - synapse-media:/data/media_store
+      - ../configs/synapse:/config:ro
+    environment:
+      - SYNAPSE_CONFIG_PATH=/config/homeserver.yaml
+      - TZ=${TZ:-UTC}
+    networks:
+      - matrix-internal
+      - homelab-proxy
+    depends_on:
+      matrix-postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fSs", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.homelab.description=Matrix Synapse Homeserver"
+      - "com.homelab.category=communication"
+
+  # ============================================================================
+  # PostgreSQL Database for Matrix
+  # ============================================================================
+  
+  matrix-postgres:
+    image: postgres:16-alpine
+    container_name: matrix-postgres
+    restart: unless-stopped
+    volumes:
+      - matrix-postgres-data:/var/lib/postgresql/data
+      - ../configs/synapse/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      - POSTGRES_USER=synapse
+      - POSTGRES_PASSWORD=${MATRIX_DB_PASSWORD:-synapse_secret}
+      - POSTGRES_DB=synapse
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --lc-collate=C --lc-ctype=C
+    networks:
+      - matrix-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.homelab.description=Matrix PostgreSQL Database"
+      - "com.homelab.category=communication"
+
+  # ============================================================================
+  # Valkey (Redis-compatible) for Synapse Workers
+  # ============================================================================
+  
+  valkey:
+    image: valkey/valkey:7-alpine
+    container_name: matrix-valkey
+    restart: unless-stopped
+    volumes:
+      - valkey-data:/data
+    networks:
+      - matrix-internal
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "com.homelab.description=Valkey Cache for Matrix"
+      - "com.homelab.category=communication"
+
+  # ============================================================================
+  # Element Web Client
+  # ============================================================================
+  
+  element-web:
+    image: vectorim/element-web:latest
+    container_name: element-web
+    restart: unless-stopped
+    ports:
+      - "8480:80"
+    volumes:
+      - ../configs/synapse/element-config.json:/app/config.json:ro
+    networks:
+      - homelab-proxy
+    depends_on:
+      - synapse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.homelab.description=Element Web Matrix Client"
+      - "com.homelab.category=communication"
+
+  # ============================================================================
+  # Coturn TURN Server (NAT Traversal for Voice/Video)
+  # ============================================================================
+  
+  coturn:
+    image: coturn/coturn:latest
+    container_name: coturn
+    restart: unless-stopped
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/udp"
+      - "5349:5349/tcp"
+      - "49152-49200:49152-49200/udp"
+    volumes:
+      - ../configs/synapse/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    networks:
+      - matrix-internal
+      - homelab-proxy
+    labels:
+      - "com.homelab.description=TURN Server for Matrix Voice/Video"
+      - "com.homelab.category=communication"
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+
+networks:
+  matrix-internal:
+    name: matrix-internal
+    driver: bridge
+    internal: true
+  homelab-proxy:
+    name: homelab-proxy
+    external: true
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+
+volumes:
+  synapse-data:
+    name: homelab_synapse-data
+  synapse-media:
+    name: homelab_synapse-media
+  matrix-postgres-data:
+    name: homelab_matrix-postgres-data
+  valkey-data:
+    name: homelab_valkey-data

@@ -1,0 +1,45 @@
+# Custom DNS entries for Pi-hole
+# Add your HomeLab service subdomains here
+# Format: IP_ADDRESS HOSTNAME
+#
+# Replace 192.168.1.100 with your Docker host's actual IP
+#
+# Usage:
+# 1. Copy this file to your Pi-hole config:
+#    cp custom.list /path/to/pihole/etc-pihole/custom.list
+# 2. Restart Pi-hole:
+#    docker restart pihole
+#
+# ==============================================================================
+
+# Core Services
+192.168.1.100 media.local          # Jellyfin
+192.168.1.100 downloads.local      # qBittorrent
+192.168.1.100 wiki.local           # Kiwix
+192.168.1.100 docs.local           # BookStack
+192.168.1.100 portainer.local      # Portainer
+
+# AI & LLM
+192.168.1.100 ai.local             # Open WebUI
+192.168.1.100 ollama.local         # Ollama API
+
+# Media Management (*Arr Stack)
+192.168.1.100 radarr.local         # Radarr
+192.168.1.100 sonarr.local         # Sonarr
+192.168.1.100 lidarr.local         # Lidarr
+192.168.1.100 prowlarr.local       # Prowlarr
+192.168.1.100 bazarr.local         # Bazarr
+192.168.1.100 overseerr.local      # Overseerr
+
+# Infrastructure
+192.168.1.100 proxy.local          # Nginx Proxy Manager
+192.168.1.10  proxmox.local        # Proxmox VE
+
+# Smart Home (Raspberry Pi)
+192.168.1.50  home.local           # Home Assistant
+192.168.1.50  homeassistant.local  # Home Assistant (alternate)
+
+# Monitoring (Optional)
+192.168.1.100 uptime.local         # Uptime Kuma
+192.168.1.100 grafana.local        # Grafana
+192.168.1.100 prometheus.local     # Prometheus

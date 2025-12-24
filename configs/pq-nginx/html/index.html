@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏠 HomeLab | Post-Quantum Secured</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #f0f6fc;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --success: #238636;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 800px;
+            padding: 2rem;
+            text-align: center;
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #58a6ff, #a5b4fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: var(--muted);
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(35, 134, 54, 0.2);
+            color: var(--success);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 3rem;
+        }
+        .services {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .service {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: var(--text);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .service:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+        .service-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .service-name { font-weight: 500; }
+        footer {
+            margin-top: 3rem;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 HomeLab</h1>
+        <p class="subtitle">Self-Hosted AI, Media, and Development Platform</p>
+        
+        <div class="badge">
+            🔐 Post-Quantum TLS (Kyber768) Active
+        </div>
+        
+        <div class="services">
+            <a href="/webui/" class="service">
+                <div class="service-icon">🤖</div>
+                <div class="service-name">AI Chat</div>
+            </a>
+            <a href="/jellyfin/" class="service">
+                <div class="service-icon">🎬</div>
+                <div class="service-name">Media</div>
+            </a>
+            <a href="/grafana/" class="service">
+                <div class="service-icon">📊</div>
+                <div class="service-name">Monitoring</div>
+            </a>
+            <a href="/bookstack/" class="service">
+                <div class="service-icon">📚</div>
+                <div class="service-name">Wiki</div>
+            </a>
+            <a href="/kiwix/" class="service">
+                <div class="service-icon">🌐</div>
+                <div class="service-name">Offline Wiki</div>
+            </a>
+            <a href="/creative/" class="service">
+                <div class="service-icon">🎨</div>
+                <div class="service-name">Creative AI</div>
+            </a>
+            <a href="/portainer/" class="service">
+                <div class="service-icon">🐳</div>
+                <div class="service-name">Containers</div>
+            </a>
+            <a href="/vault/" class="service">
+                <div class="service-icon">🔑</div>
+                <div class="service-name">Secrets</div>
+            </a>
+        </div>
+        
+        <footer>
+            <p>Protected by OpenQuantumSafe NGINX with hybrid key exchange</p>
+            <p>X25519 + Kyber768 | TLS 1.3</p>
+        </footer>
+    </div>
+</body>
+</html>

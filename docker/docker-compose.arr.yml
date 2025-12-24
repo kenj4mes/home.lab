@@ -1,0 +1,182 @@
+# ==============================================================================
+# 🎬 *Arr Stack - Automated Media Management
+# ==============================================================================
+# HomeLab - Self-Hosted Infrastructure Stack
+#
+# Services: Radarr, Sonarr, Lidarr, Prowlarr, Bazarr
+#
+# NOTE: This stack is for automated downloading of LEGAL content only.
+#       Configure indexers to use public domain / Creative Commons sources.
+#
+# Usage:
+#   docker compose -f docker-compose.arr.yml up -d
+# ==============================================================================
+
+version: "3.8"
+
+networks:
+  homelab:
+    external: true
+
+services:
+  # ============================================================================
+  # 🔍 PROWLARR - Indexer Manager (Central hub for all *Arr apps)
+  # ============================================================================
+  # Access: http://<IP>:9696
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/prowlarr:/config
+    ports:
+      - "9696:9696"
+    networks:
+      - homelab
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🎥 RADARR - Movie Collection Manager
+  # ============================================================================
+  # Access: http://<IP>:7878
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/radarr:/config
+      - ${MEDIA_PATH:-/srv/Tumadre}/Movies:/movies
+      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+    ports:
+      - "7878:7878"
+    networks:
+      - homelab
+    restart: unless-stopped
+
+  # ============================================================================
+  # 📺 SONARR - TV Series Collection Manager
+  # ============================================================================
+  # Access: http://<IP>:8989
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/sonarr:/config
+      - ${MEDIA_PATH:-/srv/Tumadre}/Series:/tv
+      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+    ports:
+      - "8989:8989"
+    networks:
+      - homelab
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🎵 LIDARR - Music Collection Manager
+  # ============================================================================
+  # Access: http://<IP>:8686
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/lidarr:/config
+      - ${MEDIA_PATH:-/srv/Tumadre}/Music:/music
+      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+    ports:
+      - "8686:8686"
+    networks:
+      - homelab
+    restart: unless-stopped
+
+  # ============================================================================
+  # 📖 READARR - Book & Audiobook Manager
+  # ============================================================================
+  # Access: http://<IP>:8787
+  readarr:
+    image: lscr.io/linuxserver/readarr:develop
+    container_name: readarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/readarr:/config
+      - ${MEDIA_PATH:-/srv/Tumadre}/Books:/books
+      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+    ports:
+      - "8787:8787"
+    networks:
+      - homelab
+    restart: unless-stopped
+
+  # ============================================================================
+  # 💬 BAZARR - Subtitle Manager
+  # ============================================================================
+  # Access: http://<IP>:6767
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/bazarr:/config
+      - ${MEDIA_PATH:-/srv/Tumadre}/Movies:/movies
+      - ${MEDIA_PATH:-/srv/Tumadre}/Series:/tv
+    ports:
+      - "6767:6767"
+    networks:
+      - homelab
+    restart: unless-stopped
+
+  # ============================================================================
+  # 📊 TAUTULLI - Plex/Jellyfin Statistics (Optional)
+  # ============================================================================
+  # Access: http://<IP>:8181
+  tautulli:
+    image: lscr.io/linuxserver/tautulli:latest
+    container_name: tautulli
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/tautulli:/config
+    ports:
+      - "8181:8181"
+    networks:
+      - homelab
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🔄 OVERSEERR - Request Management for Plex/Jellyfin
+  # ============================================================================
+  # Access: http://<IP>:5055
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${CONFIG_PATH:-/srv/FlashBang}/overseerr:/config
+    ports:
+      - "5055:5055"
+    networks:
+      - homelab
+    restart: unless-stopped

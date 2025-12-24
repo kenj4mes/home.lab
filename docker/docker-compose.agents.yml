@@ -1,0 +1,163 @@
+# ==============================================================================
+# 🤖 HomeLab Agent Stack - Docker Compose
+# ==============================================================================
+# AI Agent services:
+#   - Agent Orchestrator (LangGraph, CrewAI)
+#   - MCP Server (Model Context Protocol)
+#   - ChromaDB (Vector Store)
+# ==============================================================================
+
+name: homelab
+
+networks:
+  homelab:
+    name: homelab
+    external: true
+  agent-internal:
+    name: agent-internal
+    internal: true
+
+volumes:
+  chromadb-data:
+  agent-data:
+  redis-data:
+  n8n-data:
+
+
+services:
+  # ============================================================================
+  # Agent Orchestrator
+  # ============================================================================
+  agent-orchestrator:
+    build:
+      context: ../miniapps/agent-orchestrator
+      dockerfile: Dockerfile
+    container_name: agent-orchestrator
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-mistral}
+      - BASE_RPC_URL=http://base-node:8545
+      - CHROMADB_URL=http://chromadb:8000
+      - PORT=5004
+    volumes:
+      - agent-data:/app/data
+    ports:
+      - "5004:5004"
+    networks:
+      - homelab
+      - agent-internal
+    depends_on:
+      - chromadb
+    restart: unless-stopped
+    labels:
+      - "homelab.service=agent-orchestrator"
+      - "homelab.category=ai"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ============================================================================
+  # MCP Server (Model Context Protocol)
+  # ============================================================================
+  mcp-server:
+    build:
+      context: ../miniapps/agent-orchestrator
+      dockerfile: Dockerfile
+    container_name: mcp-server
+    entrypoint: ["python", "-m", "mcp.server.stdio"]
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - BASE_RPC_URL=http://base-node:8545
+      - QUANTUM_RNG_URL=http://quantum-rng:5001
+      - QUANTUM_SIM_URL=http://quantum-simulator:5002
+    ports:
+      - "5005:5005"
+    networks:
+      - homelab
+      - agent-internal
+    restart: unless-stopped
+    profiles:
+      - full
+    labels:
+      - "homelab.service=mcp-server"
+      - "homelab.category=ai"
+
+  # ============================================================================
+  # ChromaDB - Vector Store
+  # ============================================================================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - ANONYMIZED_TELEMETRY=false
+      - ALLOW_RESET=true
+    volumes:
+      - chromadb-data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    networks:
+      - homelab
+      - agent-internal
+    restart: unless-stopped
+    labels:
+      - "homelab.service=chromadb"
+      - "homelab.category=database"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # Redis - Cache & Message Queue
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - agent-internal
+    restart: unless-stopped
+    labels:
+      - "homelab.service=redis"
+      - "homelab.category=database"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # n8n - Workflow Automation (Optional)
+  # ============================================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678
+      - GENERIC_TIMEZONE=${TZ:-America/New_York}
+    volumes:
+      - n8n-data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    networks:
+      - homelab
+      - agent-internal
+    restart: unless-stopped
+    profiles:
+      - automation
+    labels:
+      - "homelab.service=n8n"
+      - "homelab.category=automation"
