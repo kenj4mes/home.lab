@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  log-aggregator:
+    build: .
+    container_name: log-aggregator
+    restart: unless-stopped
+    ports:
+      - "5500:5500"
+    environment:
+      - LOG_DIR=/var/log/homelab
+      - LOG_RETENTION_DAYS=30
+    volumes:
+      - /var/log/homelab:/var/log/homelab
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5500/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  homelab:
+    external: true

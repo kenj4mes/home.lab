@@ -1,0 +1,283 @@
+# ═══════════════════════════════════════════════════════════════
+# 🤖 home.lab - Model Router Configuration
+# Intelligent AI model routing with fallback chains
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "AI model routing and orchestration"
+
+# ───────────────────────────────────────────────────────────────
+# Model Registry
+# ───────────────────────────────────────────────────────────────
+models:
+  # ─── Text Generation ───
+  llama3.2:
+    provider: ollama
+    endpoint: http://ollama:11434
+    type: text-generation
+    context_window: 128000
+    capabilities:
+      - chat
+      - completion
+      - code
+      - reasoning
+    performance:
+      tokens_per_second: 50
+      load_time_seconds: 10
+    resources:
+      vram_gb: 8
+      ram_gb: 16
+    priority: 1
+
+  qwen2.5-coder:
+    provider: ollama
+    endpoint: http://ollama:11434
+    type: text-generation
+    context_window: 32768
+    capabilities:
+      - code
+      - completion
+      - debugging
+    performance:
+      tokens_per_second: 45
+      load_time_seconds: 8
+    resources:
+      vram_gb: 6
+      ram_gb: 12
+    priority: 2
+
+  deepseek-r1:
+    provider: ollama
+    endpoint: http://ollama:11434
+    type: text-generation
+    context_window: 32768
+    capabilities:
+      - reasoning
+      - math
+      - analysis
+    performance:
+      tokens_per_second: 30
+      load_time_seconds: 15
+    resources:
+      vram_gb: 12
+      ram_gb: 24
+    priority: 3
+
+  gemma2:
+    provider: ollama
+    endpoint: http://ollama:11434
+    type: text-generation
+    context_window: 8192
+    capabilities:
+      - chat
+      - completion
+    performance:
+      tokens_per_second: 60
+      load_time_seconds: 5
+    resources:
+      vram_gb: 4
+      ram_gb: 8
+    priority: 4
+
+  # ─── Embeddings ───
+  nomic-embed-text:
+    provider: ollama
+    endpoint: http://ollama:11434
+    type: embeddings
+    dimensions: 768
+    capabilities:
+      - embeddings
+      - semantic-search
+    performance:
+      tokens_per_second: 500
+      load_time_seconds: 2
+    resources:
+      vram_gb: 2
+      ram_gb: 4
+    priority: 1
+
+  mxbai-embed-large:
+    provider: ollama
+    endpoint: http://ollama:11434
+    type: embeddings
+    dimensions: 1024
+    capabilities:
+      - embeddings
+      - semantic-search
+    performance:
+      tokens_per_second: 400
+      load_time_seconds: 3
+    resources:
+      vram_gb: 3
+      ram_gb: 6
+    priority: 2
+
+  # ─── Vision ───
+  llava:
+    provider: ollama
+    endpoint: http://ollama:11434
+    type: vision
+    context_window: 4096
+    capabilities:
+      - vision
+      - image-understanding
+      - ocr
+    performance:
+      tokens_per_second: 20
+      load_time_seconds: 20
+    resources:
+      vram_gb: 10
+      ram_gb: 20
+    priority: 1
+
+  # ─── Audio ───
+  whisper-large:
+    provider: local
+    endpoint: http://whisper:9000
+    type: audio
+    capabilities:
+      - speech-to-text
+      - transcription
+      - translation
+    performance:
+      realtime_factor: 0.5
+      load_time_seconds: 10
+    resources:
+      vram_gb: 4
+      ram_gb: 8
+    priority: 1
+
+# ───────────────────────────────────────────────────────────────
+# Routing Rules
+# ───────────────────────────────────────────────────────────────
+routing:
+  # Route by task type
+  task_routing:
+    chat:
+      primary: llama3.2
+      fallback: [gemma2]
+      
+    code:
+      primary: qwen2.5-coder
+      fallback: [llama3.2]
+      
+    reasoning:
+      primary: deepseek-r1
+      fallback: [llama3.2]
+      
+    embeddings:
+      primary: nomic-embed-text
+      fallback: [mxbai-embed-large]
+      
+    vision:
+      primary: llava
+      fallback: []
+      
+    audio:
+      primary: whisper-large
+      fallback: []
+
+  # Route by complexity
+  complexity_routing:
+    simple:  # < 100 tokens
+      prefer: gemma2
+      reason: "Fast response for simple queries"
+      
+    medium:  # 100-1000 tokens
+      prefer: llama3.2
+      reason: "Balance of speed and capability"
+      
+    complex:  # > 1000 tokens
+      prefer: deepseek-r1
+      reason: "Deep reasoning for complex tasks"
+
+  # Route by context length
+  context_routing:
+    short: { max_tokens: 4000, prefer: gemma2 }
+    medium: { max_tokens: 32000, prefer: llama3.2 }
+    long: { max_tokens: 128000, prefer: llama3.2 }
+
+# ───────────────────────────────────────────────────────────────
+# Ensemble Patterns
+# ───────────────────────────────────────────────────────────────
+ensembles:
+  code_review:
+    description: "Multi-model code review"
+    strategy: consensus
+    models:
+      - qwen2.5-coder
+      - llama3.2
+    aggregation: vote_with_confidence
+    min_agreement: 0.7
+
+  creative_writing:
+    description: "Creative content generation"
+    strategy: diverse
+    models:
+      - llama3.2
+      - gemma2
+    aggregation: merge_unique
+    
+  fact_checking:
+    description: "Verify factual claims"
+    strategy: consensus
+    models:
+      - llama3.2
+      - deepseek-r1
+    aggregation: unanimous_or_flag
+
+  code_generation:
+    description: "Generate and verify code"
+    strategy: generate_critique
+    models:
+      generator: qwen2.5-coder
+      critic: llama3.2
+    iterations: 2
+
+# ───────────────────────────────────────────────────────────────
+# Load Balancing
+# ───────────────────────────────────────────────────────────────
+load_balancing:
+  strategy: least_loaded  # round_robin, least_loaded, priority
+  
+  health_check:
+    interval_seconds: 30
+    timeout_seconds: 5
+    unhealthy_threshold: 3
+    healthy_threshold: 2
+    
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_seconds: 60
+    half_open_requests: 3
+
+# ───────────────────────────────────────────────────────────────
+# Resource Limits
+# ───────────────────────────────────────────────────────────────
+resources:
+  total_vram_gb: 24
+  total_ram_gb: 64
+  max_concurrent_models: 3
+  max_concurrent_requests: 10
+  
+  preload:
+    - llama3.2
+    - nomic-embed-text
+    
+  unload_timeout_minutes: 15
+
+# ───────────────────────────────────────────────────────────────
+# Caching
+# ───────────────────────────────────────────────────────────────
+caching:
+  enabled: true
+  backend: redis
+  endpoint: redis://redis:6379/1
+  
+  ttl:
+    embeddings: 86400      # 24 hours
+    completions: 3600      # 1 hour
+    chat: 0                # No caching for chat
+    
+  max_cache_size_mb: 1024

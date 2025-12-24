@@ -1,0 +1,238 @@
+# ═══════════════════════════════════════════════════════════════
+# 🌐 home.lab - Network Security Configuration
+# Firewall rules, rate limiting, and network policies
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Network security policies"
+
+# ───────────────────────────────────────────────────────────────
+# Network Zones
+# ───────────────────────────────────────────────────────────────
+zones:
+  public:
+    description: "Internet-facing services"
+    cidr: "0.0.0.0/0"
+    services:
+      - reverse_proxy
+      - cdn
+    security: maximum
+    
+  dmz:
+    description: "Demilitarized zone"
+    cidr: "10.0.1.0/24"
+    services:
+      - web_servers
+      - api_gateway
+    security: high
+    
+  internal:
+    description: "Internal services"
+    cidr: "10.0.2.0/24"
+    services:
+      - databases
+      - ai_services
+      - message_bus
+    security: moderate
+    
+  management:
+    description: "Management network"
+    cidr: "10.0.3.0/24"
+    services:
+      - monitoring
+      - logging
+      - admin
+    security: high
+
+# ───────────────────────────────────────────────────────────────
+# Firewall Rules
+# ───────────────────────────────────────────────────────────────
+firewall:
+  default_policy: deny
+  
+  rules:
+    # Public access
+    - name: "Allow HTTPS"
+      source: public
+      destination: dmz
+      port: 443
+      protocol: tcp
+      action: allow
+      
+    - name: "Allow HTTP redirect"
+      source: public
+      destination: dmz
+      port: 80
+      protocol: tcp
+      action: allow
+      
+    # DMZ to internal
+    - name: "Web to API"
+      source: dmz
+      destination: internal
+      ports: [5100, 5101, 5200]
+      protocol: tcp
+      action: allow
+      
+    # Internal communication
+    - name: "Internal mesh"
+      source: internal
+      destination: internal
+      ports: all
+      protocol: tcp
+      action: allow
+      
+    # Management access
+    - name: "SSH from management"
+      source: management
+      destination: "*"
+      port: 22
+      protocol: tcp
+      action: allow
+      
+    # Block everything else
+    - name: "Default deny"
+      source: "*"
+      destination: "*"
+      action: deny
+      log: true
+
+# ───────────────────────────────────────────────────────────────
+# Rate Limiting
+# ───────────────────────────────────────────────────────────────
+rate_limiting:
+  global:
+    enabled: true
+    window: 60s
+    
+  tiers:
+    standard:
+      requests_per_minute: 100
+      burst: 20
+      
+    authenticated:
+      requests_per_minute: 300
+      burst: 50
+      
+    api:
+      requests_per_minute: 1000
+      burst: 100
+      
+    internal:
+      requests_per_minute: 10000
+      burst: 1000
+      
+  endpoints:
+    # Strict limits for sensitive endpoints
+    "/auth/*":
+      requests_per_minute: 10
+      burst: 3
+      on_exceed: block_15m
+      
+    "/api/admin/*":
+      requests_per_minute: 30
+      burst: 5
+      
+    # Looser limits for static content
+    "/static/*":
+      requests_per_minute: 1000
+      burst: 200
+      
+  actions:
+    on_limit:
+      - log_event
+      - return_429
+      
+    on_abuse:
+      - block_ip
+      - alert_security
+      - add_to_watchlist
+
+# ───────────────────────────────────────────────────────────────
+# DDoS Protection
+# ───────────────────────────────────────────────────────────────
+ddos_protection:
+  enabled: true
+  
+  detection:
+    threshold_rps: 10000
+    threshold_connections: 5000
+    threshold_bandwidth_mbps: 1000
+    
+  mitigation:
+    auto: true
+    actions:
+      - enable_challenge
+      - increase_rate_limits
+      - block_suspicious_ips
+      - notify_admin
+      
+  allowlist:
+    - 10.0.0.0/8  # Internal
+    - 127.0.0.1   # Localhost
+    
+  blocklist:
+    auto_add: true
+    duration: 24h
+    persistent: false
+
+# ───────────────────────────────────────────────────────────────
+# TLS Configuration
+# ───────────────────────────────────────────────────────────────
+tls:
+  min_version: "1.2"
+  prefer_server_ciphers: true
+  
+  ciphers:
+    - TLS_AES_128_GCM_SHA256
+    - TLS_AES_256_GCM_SHA384
+    - TLS_CHACHA20_POLY1305_SHA256
+    - ECDHE-RSA-AES128-GCM-SHA256
+    - ECDHE-RSA-AES256-GCM-SHA384
+    
+  hsts:
+    enabled: true
+    max_age: 31536000
+    include_subdomains: true
+    preload: true
+    
+  certificate:
+    provider: letsencrypt
+    auto_renew: true
+    renew_days_before: 30
+
+# ───────────────────────────────────────────────────────────────
+# Intrusion Detection
+# ───────────────────────────────────────────────────────────────
+intrusion_detection:
+  enabled: true
+  
+  patterns:
+    sql_injection:
+      enabled: true
+      action: block_and_alert
+      
+    xss:
+      enabled: true
+      action: block_and_alert
+      
+    path_traversal:
+      enabled: true
+      action: block_and_alert
+      
+    command_injection:
+      enabled: true
+      action: block_and_alert
+      
+  anomaly_detection:
+    enabled: true
+    baseline_period: 7d
+    sensitivity: medium
+    
+  honeypots:
+    enabled: true
+    paths:
+      - /admin.php
+      - /wp-admin
+      - /.env
+      - /phpmyadmin

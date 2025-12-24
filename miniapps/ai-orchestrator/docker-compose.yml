@@ -1,0 +1,54 @@
+# ═══════════════════════════════════════════════════════════════
+# 🤖 home.lab - AI Orchestrator
+# Intelligent model routing and ensemble execution
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  ai-orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homelab-ai-orchestrator
+    ports:
+      - "5200:5200"
+    environment:
+      - ORCHESTRATOR_HOST=0.0.0.0
+      - ORCHESTRATOR_PORT=5200
+      - OLLAMA_URL=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/2
+      - EVENT_STORE_URL=http://event-store:5101
+      - MESSAGE_BUS_URL=http://message-bus:5100
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../../configs/ai:/app/configs:ro
+    depends_on:
+      - redis
+      - event-store
+      - message-bus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5200/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - homelab
+    labels:
+      - "homelab.service=ai-orchestrator"
+      - "homelab.category=ai"
+      - "homelab.priority=8"
+
+  redis:
+    image: redis:7-alpine
+    container_name: homelab-ai-redis
+    volumes:
+      - ai-redis-data:/data
+    networks:
+      - homelab
+
+volumes:
+  ai-redis-data:
+
+networks:
+  homelab:
+    external: true

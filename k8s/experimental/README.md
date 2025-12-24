@@ -155,4 +155,4 @@ For offline operation:
 
 ---
 
-*"The infrastructure that observes, reasons, and acts is no longer a tool—it is a partner."*
+*"The infrastructure that observes, reasons, and acts no longer as a tool. It becomes a partner."*

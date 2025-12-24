@@ -1,0 +1,262 @@
+# ═══════════════════════════════════════════════════════════════
+# 🔔 home.lab - Alert Rules Configuration
+# Prometheus alerting rules for all services
+# ═══════════════════════════════════════════════════════════════
+
+groups:
+  # ───────────────────────────────────────────────────────────
+  # System Alerts
+  # ───────────────────────────────────────────────────────────
+  - name: system
+    interval: 30s
+    rules:
+      - alert: HighCPUUsage
+        expr: avg(rate(process_cpu_seconds_total[5m])) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 85% for more than 5 minutes"
+          runbook: "docs/runbooks/high-cpu.md"
+          
+      - alert: CriticalCPUUsage
+        expr: avg(rate(process_cpu_seconds_total[5m])) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Critical CPU usage"
+          description: "CPU usage is above 95% - immediate action required"
+          
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 85%"
+          
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_size_bytes - node_filesystem_avail_bytes) / node_filesystem_size_bytes * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "Disk space running low"
+          description: "Disk usage is above 80%"
+          
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_size_bytes - node_filesystem_avail_bytes) / node_filesystem_size_bytes * 100 > 95
+        for: 5m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Disk space critically low"
+          description: "Disk usage is above 95% - immediate cleanup required"
+
+  # ───────────────────────────────────────────────────────────
+  # Service Alerts
+  # ───────────────────────────────────────────────────────────
+  - name: services
+    interval: 15s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: service
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service has been unresponsive for more than 1 minute"
+          
+      - alert: ServiceHighLatency
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: service
+        annotations:
+          summary: "High latency on {{ $labels.job }}"
+          description: "P99 latency is above 2 seconds"
+          
+      - alert: ServiceHighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: service
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5%"
+          
+      - alert: ContainerRestarting
+        expr: increase(container_restart_count[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          category: service
+        annotations:
+          summary: "Container {{ $labels.name }} restarting frequently"
+          description: "Container has restarted more than 3 times in the last hour"
+
+  # ───────────────────────────────────────────────────────────
+  # AI Alerts
+  # ───────────────────────────────────────────────────────────
+  - name: ai
+    interval: 30s
+    rules:
+      - alert: AIOrchestratorsDown
+        expr: up{job="ai-orchestrator"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: ai
+        annotations:
+          summary: "AI Orchestrator is down"
+          description: "AI Orchestrator has been unresponsive"
+          
+      - alert: OllamaDown
+        expr: up{job="ollama"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: ai
+        annotations:
+          summary: "Ollama service is down"
+          description: "Ollama has been unresponsive"
+          
+      - alert: AIHighLatency
+        expr: histogram_quantile(0.95, rate(ai_inference_duration_seconds_bucket[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: ai
+        annotations:
+          summary: "AI inference is slow"
+          description: "P95 inference latency is above 10 seconds"
+          
+      - alert: GPUMemoryHigh
+        expr: nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: ai
+        annotations:
+          summary: "GPU memory running low"
+          description: "GPU memory usage is above 90%"
+
+  # ───────────────────────────────────────────────────────────
+  # Database Alerts
+  # ───────────────────────────────────────────────────────────
+  - name: database
+    interval: 30s
+    rules:
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Redis is down"
+          description: "Redis has been unresponsive"
+          
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis memory usage is above 80%"
+          
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL has been unresponsive"
+          
+      - alert: PostgresConnectionsHigh
+        expr: pg_stat_activity_count / pg_settings_max_connections * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "PostgreSQL connections high"
+          description: "Connection usage is above 80%"
+
+  # ───────────────────────────────────────────────────────────
+  # Security Alerts
+  # ───────────────────────────────────────────────────────────
+  - name: security
+    interval: 60s
+    rules:
+      - alert: FailedLoginAttempts
+        expr: increase(auth_failed_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Multiple failed login attempts"
+          description: "More than 10 failed login attempts in 5 minutes"
+          
+      - alert: SuspiciousActivity
+        expr: increase(security_events_total{type="suspicious"}[10m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Suspicious activity detected"
+          description: "Multiple suspicious events detected"
+          
+      - alert: CertificateExpiring
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "Certificate will expire in less than 14 days"
+
+  # ───────────────────────────────────────────────────────────
+  # Network Alerts
+  # ───────────────────────────────────────────────────────────
+  - name: network
+    interval: 30s
+    rules:
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_receive_bytes_total[5m]) > 100000000
+        for: 10m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "High network traffic"
+          description: "Network ingress is above 100 MB/s"
+          
+      - alert: NetworkInterfaceDown
+        expr: node_network_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: network
+        annotations:
+          summary: "Network interface down"
+          description: "Network interface {{ $labels.device }} is down"

@@ -1,0 +1,196 @@
+# ═══════════════════════════════════════════════════════════════
+# ⚡ home.lab - Energy Dashboard Configuration
+# Power consumption monitoring and optimization
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Energy monitoring and efficiency tracking"
+
+# ───────────────────────────────────────────────────────────────
+# Power Sources
+# ───────────────────────────────────────────────────────────────
+sources:
+  smart_plugs:
+    - name: server_rack
+      type: tasmota
+      ip: 192.168.1.100
+      metrics:
+        - power_watts
+        - energy_kwh
+        - voltage
+        - current
+        
+    - name: networking
+      type: tasmota
+      ip: 192.168.1.101
+      metrics:
+        - power_watts
+        - energy_kwh
+        
+    - name: storage
+      type: tasmota
+      ip: 192.168.1.102
+      metrics:
+        - power_watts
+        - energy_kwh
+
+  ups:
+    - name: main_ups
+      type: nut
+      host: localhost
+      port: 3493
+      metrics:
+        - battery_charge
+        - battery_runtime
+        - input_voltage
+        - load_percent
+        - output_power
+
+# ───────────────────────────────────────────────────────────────
+# Energy Metrics
+# ───────────────────────────────────────────────────────────────
+metrics:
+  total_power:
+    description: "Total power consumption"
+    unit: watts
+    calculation: "sum(sources.*.power_watts)"
+    
+  daily_energy:
+    description: "Daily energy usage"
+    unit: kwh
+    calculation: "sum(sources.*.energy_kwh)"
+    reset: daily
+    
+  monthly_energy:
+    description: "Monthly energy usage"
+    unit: kwh
+    calculation: "sum(daily_energy)"
+    reset: monthly
+    
+  estimated_cost:
+    description: "Estimated electricity cost"
+    unit: currency
+    calculation: "monthly_energy * ${ELECTRICITY_RATE}"
+    
+  pue:
+    description: "Power Usage Effectiveness"
+    calculation: "total_power / compute_power"
+    target: 1.4
+    
+  carbon_footprint:
+    description: "CO2 emissions"
+    unit: "kg CO2"
+    calculation: "monthly_energy * ${CARBON_INTENSITY}"
+
+# ───────────────────────────────────────────────────────────────
+# Efficiency Targets
+# ───────────────────────────────────────────────────────────────
+targets:
+  power_budget:
+    description: "Maximum power budget"
+    value: 500
+    unit: watts
+    
+  energy_budget:
+    description: "Monthly energy budget"
+    value: 300
+    unit: kwh
+    
+  cost_budget:
+    description: "Monthly cost budget"
+    value: 50
+    unit: currency
+
+# ───────────────────────────────────────────────────────────────
+# Optimization Rules
+# ───────────────────────────────────────────────────────────────
+optimization:
+  schedules:
+    night_mode:
+      description: "Reduce power during off-peak hours"
+      cron: "0 23 * * *"
+      duration: 7h
+      actions:
+        - stop_services: [creative-ai, transcription]
+        - reduce_replicas: [jellyfin, nextcloud]
+        - enable_sleep: [storage]
+        
+    peak_avoidance:
+      description: "Reduce usage during peak hours"
+      cron: "0 17 * * 1-5"
+      duration: 4h
+      actions:
+        - queue_heavy_tasks: true
+        - use_cached_responses: true
+        
+  dynamic:
+    power_spike:
+      condition: "total_power > power_budget * 1.2"
+      actions:
+        - throttle_cpu: 80%
+        - defer_batch_jobs: true
+        
+    battery_low:
+      condition: "ups.battery_charge < 30"
+      actions:
+        - graceful_shutdown: [non_essential]
+        - notify: critical
+
+# ───────────────────────────────────────────────────────────────
+# Dashboard Layout
+# ───────────────────────────────────────────────────────────────
+dashboard:
+  title: "Energy Dashboard"
+  refresh: 30s
+  
+  rows:
+    - height: 200px
+      panels:
+        - type: gauge
+          title: "Current Power"
+          metric: total_power
+          thresholds: [300, 400, 500]
+          colors: [green, yellow, red]
+          
+        - type: gauge
+          title: "Battery"
+          metric: ups.battery_charge
+          thresholds: [20, 50, 80]
+          colors: [red, yellow, green]
+          
+        - type: stat
+          title: "Today"
+          metric: daily_energy
+          suffix: " kWh"
+          
+        - type: stat
+          title: "This Month"
+          metric: monthly_energy
+          suffix: " kWh"
+          
+    - height: 300px
+      panels:
+        - type: time_series
+          title: "Power Over Time"
+          metrics:
+            - server_rack.power_watts
+            - networking.power_watts
+            - storage.power_watts
+          span: 24h
+          
+    - height: 200px
+      panels:
+        - type: bar_chart
+          title: "Energy by Device"
+          metric: energy_kwh
+          group_by: source
+          
+        - type: stat
+          title: "Est. Monthly Cost"
+          metric: estimated_cost
+          prefix: "$"
+          
+        - type: stat
+          title: "Carbon Footprint"
+          metric: carbon_footprint
+          suffix: " kg CO₂"

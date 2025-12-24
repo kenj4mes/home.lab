@@ -1,0 +1,205 @@
+# ═══════════════════════════════════════════════════════════════
+# 🏠 home.lab - All Miniapps Orchestration
+# Unified deployment for custom services
+# ═══════════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  # ─────────────────────────────────────────────────────────────
+  # Core Messaging
+  # ─────────────────────────────────────────────────────────────
+  message-bus:
+    build: ./message-bus
+    container_name: message-bus
+    restart: unless-stopped
+    ports:
+      - "5100:5100"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5100/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  event-store:
+    build: ./event-store
+    container_name: event-store
+    restart: unless-stopped
+    ports:
+      - "5101:5101"
+    environment:
+      - STORE_DIR=/data/events
+    volumes:
+      - event_data:/data/events
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5101/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─────────────────────────────────────────────────────────────
+  # AI Services
+  # ─────────────────────────────────────────────────────────────
+  ai-orchestrator:
+    build: ./ai-orchestrator
+    container_name: ai-orchestrator
+    restart: unless-stopped
+    ports:
+      - "5200:5200"
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+    depends_on:
+      - message-bus
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5200/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─────────────────────────────────────────────────────────────
+  # User Interface
+  # ─────────────────────────────────────────────────────────────
+  dashboard:
+    build: ./dashboard
+    container_name: dashboard
+    restart: unless-stopped
+    ports:
+      - "5300:5300"
+    environment:
+      - MESSAGE_BUS_URL=http://message-bus:5100
+      - EVENT_STORE_URL=http://event-store:5101
+      - AI_ORCHESTRATOR_URL=http://ai-orchestrator:5200
+    depends_on:
+      - message-bus
+      - event-store
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5300/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─────────────────────────────────────────────────────────────
+  # Integration
+  # ─────────────────────────────────────────────────────────────
+  webhook-handler:
+    build: ./webhook-handler
+    container_name: webhook-handler
+    restart: unless-stopped
+    ports:
+      - "5400:5400"
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+    volumes:
+      - ../configs/integrations:/app/configs:ro
+      - ../scripts:/opt/homelab/scripts:ro
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5400/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─────────────────────────────────────────────────────────────
+  # Operations
+  # ─────────────────────────────────────────────────────────────
+  log-aggregator:
+    build: ./log-aggregator
+    container_name: log-aggregator
+    restart: unless-stopped
+    ports:
+      - "5500:5500"
+    environment:
+      - LOG_DIR=/var/log/homelab
+      - LOG_RETENTION_DAYS=30
+    volumes:
+      - /var/log/homelab:/var/log/homelab
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5500/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backup-manager:
+    build: ./backup-manager
+    container_name: backup-manager
+    restart: unless-stopped
+    ports:
+      - "5501:5501"
+    environment:
+      - BACKUP_DIR=/var/backups/homelab
+      - BACKUP_RETENTION_DAYS=30
+      - MAX_BACKUPS=10
+    volumes:
+      - /var/backups/homelab:/var/backups/homelab
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5501/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  notification-hub:
+    build: ./notification-hub
+    container_name: notification-hub
+    restart: unless-stopped
+    ports:
+      - "5502:5502"
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - NTFY_URL=${NTFY_URL:-https://ntfy.sh}
+      - NTFY_TOPIC=${NTFY_TOPIC:-homelab}
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5502/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─────────────────────────────────────────────────────────────
+  # Dependencies (if not running separately)
+  # ─────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - with-deps
+
+networks:
+  homelab:
+    external: true
+
+volumes:
+  event_data:
+  redis_data:

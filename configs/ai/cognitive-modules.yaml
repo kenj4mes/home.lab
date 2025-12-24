@@ -1,0 +1,279 @@
+# ═══════════════════════════════════════════════════════════════
+# 🧬 home.lab - Cognitive Modules Configuration
+# Brain-inspired modular intelligence architecture
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Cognitive module definitions and orchestration"
+
+# ───────────────────────────────────────────────────────────────
+# Module Registry
+# ───────────────────────────────────────────────────────────────
+modules:
+  # ═══ FOUNDATION LAYER ═══
+  foundation:
+    working_memory:
+      description: "Short-term context storage"
+      type: memory
+      capacity: 32000  # tokens
+      ttl_minutes: 30
+      persistence: false
+      
+    long_term_memory:
+      description: "Persistent knowledge storage"
+      type: memory
+      backend: vector_store
+      index: semantic
+      persistence: true
+      
+    attention_controller:
+      description: "Focus allocation and prioritization"
+      type: router
+      strategy: salience_weighted
+      max_concurrent: 5
+
+  # ═══ PROCESSING LAYER ═══
+  processing:
+    pattern_recognition:
+      description: "Identify patterns in input"
+      type: analyzer
+      models: [llama3.2]
+      triggers:
+        - new_input
+        - context_change
+        
+    reasoning_engine:
+      description: "Logical inference and deduction"
+      type: processor
+      models: [deepseek-r1, llama3.2]
+      strategies:
+        - chain_of_thought
+        - tree_of_thought
+        - analogical_reasoning
+        
+    planning_module:
+      description: "Goal decomposition and sequencing"
+      type: planner
+      models: [llama3.2]
+      max_depth: 10
+      replan_on_failure: true
+
+  # ═══ SKILL LAYER ═══
+  skills:
+    code_generation:
+      description: "Generate code from specifications"
+      type: generator
+      models: [qwen2.5-coder]
+      languages:
+        - python
+        - typescript
+        - rust
+        - solidity
+        
+    code_analysis:
+      description: "Analyze and understand code"
+      type: analyzer
+      models: [qwen2.5-coder, llama3.2]
+      capabilities:
+        - bug_detection
+        - security_audit
+        - performance_analysis
+        
+    document_understanding:
+      description: "Parse and comprehend documents"
+      type: processor
+      models: [llama3.2]
+      formats:
+        - markdown
+        - pdf
+        - code
+        - yaml
+        
+    search_synthesis:
+      description: "Search and synthesize information"
+      type: aggregator
+      models: [llama3.2]
+      sources:
+        - vector_store
+        - web_search
+        - file_system
+
+  # ═══ COMMUNICATION LAYER ═══
+  communication:
+    response_generator:
+      description: "Generate user responses"
+      type: generator
+      models: [llama3.2, gemma2]
+      styles:
+        - conversational
+        - technical
+        - concise
+        
+    context_summarizer:
+      description: "Compress context while preserving meaning"
+      type: processor
+      models: [llama3.2]
+      target_ratio: 0.3
+      preserve:
+        - key_facts
+        - decisions
+        - action_items
+        
+    intent_classifier:
+      description: "Classify user intent"
+      type: classifier
+      models: [llama3.2]
+      categories:
+        - question
+        - command
+        - clarification
+        - feedback
+
+  # ═══ META LAYER ═══
+  meta:
+    self_monitor:
+      description: "Monitor own performance"
+      type: observer
+      metrics:
+        - response_quality
+        - latency
+        - error_rate
+        
+    confidence_estimator:
+      description: "Estimate confidence in outputs"
+      type: evaluator
+      models: [llama3.2]
+      output: 0.0-1.0
+      
+    strategy_selector:
+      description: "Choose optimal approach"
+      type: router
+      models: [llama3.2]
+      strategies:
+        - fast_response
+        - deep_analysis
+        - creative_exploration
+
+# ───────────────────────────────────────────────────────────────
+# Module Pipelines
+# ───────────────────────────────────────────────────────────────
+pipelines:
+  # Standard query handling
+  query_response:
+    description: "Process user query to response"
+    steps:
+      - module: intent_classifier
+        input: user_query
+        output: intent
+        
+      - module: attention_controller
+        input: [user_query, intent]
+        output: focus_areas
+        
+      - module: working_memory
+        action: load_context
+        output: context
+        
+      - module: strategy_selector
+        input: [intent, context]
+        output: strategy
+        
+      - module: reasoning_engine
+        input: [user_query, context, strategy]
+        output: reasoning
+        
+      - module: response_generator
+        input: [reasoning, intent]
+        output: response
+        
+      - module: confidence_estimator
+        input: response
+        output: confidence
+
+  # Code task handling
+  code_task:
+    description: "Handle code-related tasks"
+    steps:
+      - module: intent_classifier
+        input: user_query
+        output: intent
+        
+      - module: code_analysis
+        input: [user_query, code_context]
+        output: analysis
+        
+      - module: planning_module
+        input: [user_query, analysis]
+        output: plan
+        
+      - module: code_generation
+        input: plan
+        output: code
+        
+      - module: code_analysis
+        input: code
+        mode: review
+        output: review
+        
+      - module: response_generator
+        input: [code, review]
+        output: response
+
+  # Research and synthesis
+  research:
+    description: "Research and synthesize information"
+    steps:
+      - module: planning_module
+        input: research_query
+        output: search_plan
+        
+      - module: search_synthesis
+        input: search_plan
+        output: findings
+        
+      - module: context_summarizer
+        input: findings
+        output: summary
+        
+      - module: reasoning_engine
+        input: [research_query, summary]
+        output: analysis
+        
+      - module: response_generator
+        input: analysis
+        output: response
+
+# ───────────────────────────────────────────────────────────────
+# Module Communication
+# ───────────────────────────────────────────────────────────────
+communication:
+  bus: message-bus
+  protocol: async
+  
+  message_types:
+    - query
+    - response
+    - context_update
+    - state_change
+    - error
+    
+  retry:
+    max_attempts: 3
+    backoff_ms: [100, 500, 2000]
+
+# ───────────────────────────────────────────────────────────────
+# Resource Allocation
+# ───────────────────────────────────────────────────────────────
+resources:
+  priority_levels:
+    critical: { cpu_share: 0.4, memory_share: 0.4 }
+    high: { cpu_share: 0.3, memory_share: 0.3 }
+    normal: { cpu_share: 0.2, memory_share: 0.2 }
+    low: { cpu_share: 0.1, memory_share: 0.1 }
+    
+  module_priorities:
+    attention_controller: critical
+    reasoning_engine: high
+    code_generation: high
+    response_generator: normal
+    self_monitor: low

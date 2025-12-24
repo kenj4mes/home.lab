@@ -125,6 +125,82 @@ models-list:
 	./scripts/download-models.sh --list-groups
 
 # ==============================================================================
+# MINIAPPS COMMANDS
+# ==============================================================================
+
+COMPOSE_MINIAPPS ?= miniapps/docker-compose.yml
+DC_MINIAPPS = docker compose -f $(COMPOSE_MINIAPPS)
+
+## Start all miniapps
+miniapps-start:
+	@echo "🚀 Starting miniapps..."
+	$(DC_MINIAPPS) up -d
+	@echo "✅ Miniapps started!"
+	@echo ""
+	@echo "Access your miniapps:"
+	@echo "  Message Bus:      http://localhost:5100"
+	@echo "  Event Store:      http://localhost:5101"
+	@echo "  AI Orchestrator:  http://localhost:5200"
+	@echo "  Dashboard:        http://localhost:5300"
+	@echo "  Webhook Handler:  http://localhost:5400"
+	@echo "  Log Aggregator:   http://localhost:5500"
+	@echo "  Backup Manager:   http://localhost:5501"
+	@echo "  Notification Hub: http://localhost:5502"
+
+## Stop all miniapps
+miniapps-stop:
+	@echo "🛑 Stopping miniapps..."
+	$(DC_MINIAPPS) down
+
+## Show miniapps status
+miniapps-status:
+	$(DC_MINIAPPS) ps
+
+## View miniapps logs
+miniapps-logs:
+	$(DC_MINIAPPS) logs -f --tail=100
+
+## Build all miniapps
+miniapps-build:
+	@echo "🔨 Building miniapps..."
+	$(DC_MINIAPPS) build
+
+## Rebuild and restart miniapps
+miniapps-rebuild:
+	@echo "🔄 Rebuilding miniapps..."
+	$(DC_MINIAPPS) up -d --build
+	@echo "✅ Miniapps rebuilt and started!"
+
+# ==============================================================================
+# OPERATIONS COMMANDS
+# ==============================================================================
+
+## Run health check
+health:
+	@echo "🏥 Running health check..."
+	./scripts/health-check.sh
+
+## Run security audit
+audit:
+	@echo "🔒 Running security audit..."
+	./scripts/security/audit.sh
+
+## Run backup
+backup:
+	@echo "💾 Running backup..."
+	./scripts/backup.sh
+
+## Deploy to production
+deploy:
+	@echo "🚀 Deploying..."
+	./scripts/deploy.sh production
+
+## Deploy with rollback
+rollback:
+	@echo "⏪ Rolling back..."
+	./scripts/deploy.sh production --rollback
+
+# ==============================================================================
 # MAINTENANCE COMMANDS
 # ==============================================================================
 
@@ -175,6 +251,14 @@ help:
 	@echo "  make restart     Restart all services"
 	@echo "  make update      Pull latest images and restart"
 	@echo ""
+	@echo "Miniapps Commands:"
+	@echo "  make miniapps-start    Start all miniapps"
+	@echo "  make miniapps-stop     Stop all miniapps"
+	@echo "  make miniapps-status   Show miniapps status"
+	@echo "  make miniapps-logs     View miniapps logs"
+	@echo "  make miniapps-build    Build all miniapps"
+	@echo "  make miniapps-rebuild  Rebuild and restart"
+	@echo ""
 	@echo "Blockchain Commands:"
 	@echo "  make base-start  Start Base blockchain services"
 	@echo "  make base-stop   Stop blockchain services"
@@ -184,6 +268,13 @@ help:
 	@echo "Model Commands:"
 	@echo "  make models      Download standard Ollama models"
 	@echo "  make models-list List available model groups"
+	@echo ""
+	@echo "Operations:"
+	@echo "  make health      Run health check"
+	@echo "  make audit       Run security audit"
+	@echo "  make backup      Run backup"
+	@echo "  make deploy      Deploy to production"
+	@echo "  make rollback    Rollback deployment"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean       Remove unused Docker resources"

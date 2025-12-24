@@ -1,0 +1,159 @@
+# ═══════════════════════════════════════════════════════════════
+# 🔌 home.lab - Webhook Configuration
+# External integrations and notifications
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Webhook and external integration configuration"
+
+# ───────────────────────────────────────────────────────────────
+# Outgoing Webhooks
+# ───────────────────────────────────────────────────────────────
+outgoing:
+  slack:
+    enabled: true
+    url: "${SLACK_WEBHOOK_URL}"
+    channels:
+      default: "#homelab"
+      alerts: "#homelab-alerts"
+      deployments: "#homelab-deployments"
+      
+    templates:
+      alert:
+        color: "danger"
+        title: "🚨 Alert: {{.title}}"
+        fields:
+          - title: "Severity"
+            value: "{{.severity}}"
+          - title: "Service"
+            value: "{{.service}}"
+          - title: "Message"
+            value: "{{.message}}"
+            
+      deployment:
+        color: "good"
+        title: "🚀 Deployment: {{.service}}"
+        fields:
+          - title: "Version"
+            value: "{{.version}}"
+          - title: "Status"
+            value: "{{.status}}"
+            
+      health:
+        color: "{{if eq .status 'healthy'}}good{{else}}danger{{end}}"
+        title: "Health Check: {{.status}}"
+        
+    rate_limit:
+      max_per_minute: 10
+      burst: 5
+
+  discord:
+    enabled: false
+    url: "${DISCORD_WEBHOOK_URL}"
+    
+  email:
+    enabled: false
+    smtp:
+      host: "${SMTP_HOST}"
+      port: 587
+      username: "${SMTP_USER}"
+      password: "${SMTP_PASSWORD}"
+      from: "homelab@localhost"
+    recipients:
+      - "${ADMIN_EMAIL}"
+      
+  pagerduty:
+    enabled: false
+    url: "${PAGERDUTY_URL}"
+    routing_key: "${PAGERDUTY_KEY}"
+
+# ───────────────────────────────────────────────────────────────
+# Incoming Webhooks
+# ───────────────────────────────────────────────────────────────
+incoming:
+  github:
+    enabled: true
+    secret: "${GITHUB_WEBHOOK_SECRET}"
+    events:
+      - push
+      - pull_request
+      - release
+    actions:
+      push:
+        - trigger: deploy_staging
+          branch: develop
+        - trigger: deploy_production
+          branch: main
+          
+      release:
+        - trigger: create_backup
+        - trigger: notify_slack
+        
+  docker_hub:
+    enabled: true
+    secret: "${DOCKERHUB_WEBHOOK_SECRET}"
+    actions:
+      - trigger: pull_image
+      - trigger: notify_slack
+        
+  custom:
+    enabled: true
+    endpoints:
+      /webhooks/deploy:
+        auth: bearer_token
+        actions:
+          - trigger: deploy_service
+          
+      /webhooks/backup:
+        auth: api_key
+        actions:
+          - trigger: create_backup
+
+# ───────────────────────────────────────────────────────────────
+# Triggers
+# ───────────────────────────────────────────────────────────────
+triggers:
+  deploy_staging:
+    type: script
+    command: "/opt/homelab/scripts/deploy.sh staging"
+    timeout: 600
+    
+  deploy_production:
+    type: script
+    command: "/opt/homelab/scripts/deploy.sh production"
+    timeout: 600
+    requires_approval: true
+    
+  create_backup:
+    type: script
+    command: "/opt/homelab/scripts/backup.sh"
+    timeout: 3600
+    
+  pull_image:
+    type: docker
+    action: pull
+    
+  notify_slack:
+    type: webhook
+    target: slack
+    template: deployment
+    
+  deploy_service:
+    type: docker
+    action: up
+    
+# ───────────────────────────────────────────────────────────────
+# Security
+# ───────────────────────────────────────────────────────────────
+security:
+  signature_validation: true
+  allowed_ips: []  # Empty = all allowed
+  
+  rate_limiting:
+    enabled: true
+    max_requests: 100
+    window_seconds: 60
+    
+  logging:
+    log_payloads: false  # Don't log sensitive data
+    log_headers: true

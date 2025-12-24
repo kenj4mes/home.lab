@@ -1,0 +1,148 @@
+# ═══════════════════════════════════════════════════════════════
+# ⏰ home.lab - Scheduled Tasks Configuration
+# Cron-style task scheduling
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Scheduled automation tasks"
+
+# ───────────────────────────────────────────────────────────────
+# Task Definitions
+# ───────────────────────────────────────────────────────────────
+tasks:
+  # ─── Backups ───
+  daily_backup:
+    description: "Full system backup"
+    schedule: "0 3 * * *"  # 3 AM daily
+    command: "/opt/homelab/scripts/backup.sh"
+    timeout: 3600
+    on_failure:
+      - notify_slack
+      - log_error
+    on_success:
+      - log_event
+      
+  weekly_backup_verify:
+    description: "Verify backup integrity"
+    schedule: "0 4 * * 0"  # 4 AM Sunday
+    command: "/opt/homelab/scripts/verify-backups.sh"
+    timeout: 1800
+    
+  # ─── Maintenance ───
+  docker_prune:
+    description: "Clean up Docker resources"
+    schedule: "0 5 * * *"  # 5 AM daily
+    command: "docker system prune -f --volumes"
+    timeout: 600
+    
+  log_rotation:
+    description: "Rotate and compress logs"
+    schedule: "0 0 * * *"  # Midnight daily
+    command: "/opt/homelab/scripts/rotate-logs.sh"
+    timeout: 300
+    
+  cert_renewal:
+    description: "Renew SSL certificates"
+    schedule: "0 2 * * 1"  # 2 AM Monday
+    command: "certbot renew --quiet"
+    timeout: 300
+    on_success:
+      - reload_nginx
+      
+  # ─── Monitoring ───
+  health_check:
+    description: "Full system health check"
+    schedule: "*/5 * * * *"  # Every 5 minutes
+    command: "/opt/homelab/scripts/health-check.sh"
+    timeout: 60
+    
+  security_audit:
+    description: "Security audit scan"
+    schedule: "0 6 * * 0"  # 6 AM Sunday
+    command: "/opt/homelab/scripts/security/audit.sh"
+    timeout: 1800
+    on_failure:
+      - notify_urgent
+      
+  # ─── Data Management ───
+  event_cleanup:
+    description: "Clean old events"
+    schedule: "0 4 * * *"  # 4 AM daily
+    command: "curl -X POST http://localhost:5101/cleanup"
+    timeout: 300
+    
+  cache_warmup:
+    description: "Warm up caches"
+    schedule: "0 6 * * *"  # 6 AM daily
+    command: "/opt/homelab/scripts/cache-warmup.sh"
+    timeout: 600
+    
+  # ─── AI Model Management ───
+  model_preload:
+    description: "Preload frequently used models"
+    schedule: "0 7 * * *"  # 7 AM daily
+    command: "curl -X POST http://localhost:5200/models/preload"
+    timeout: 600
+    
+  embedding_cache_refresh:
+    description: "Refresh embedding caches"
+    schedule: "0 8 * * 0"  # 8 AM Sunday
+    command: "/opt/homelab/scripts/refresh-embeddings.sh"
+    timeout: 7200
+    
+  # ─── Updates ───
+  container_update_check:
+    description: "Check for container updates"
+    schedule: "0 9 * * 1"  # 9 AM Monday
+    command: "/opt/homelab/scripts/check-updates.sh"
+    timeout: 300
+    on_updates:
+      - notify_slack
+      
+  dependency_scan:
+    description: "Scan for vulnerable dependencies"
+    schedule: "0 10 * * 1"  # 10 AM Monday
+    command: "/opt/homelab/scripts/scan-dependencies.sh"
+    timeout: 1800
+
+# ───────────────────────────────────────────────────────────────
+# Schedule Overrides
+# ───────────────────────────────────────────────────────────────
+overrides:
+  # Skip during maintenance windows
+  maintenance_windows:
+    - start: "2025-01-01T00:00:00Z"
+      end: "2025-01-01T06:00:00Z"
+      skip_tasks: ["*"]
+      
+  # Reduced schedule during holidays
+  reduced_schedule:
+    enabled: false
+    multiply_interval: 2
+
+# ───────────────────────────────────────────────────────────────
+# Notifications
+# ───────────────────────────────────────────────────────────────
+notifications:
+  slack:
+    enabled: true
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channels:
+      default: "#homelab-ops"
+      alerts: "#homelab-alerts"
+      
+  email:
+    enabled: false
+    smtp_host: "${SMTP_HOST}"
+    from: "homelab@localhost"
+    to: ["admin@localhost"]
+
+# ───────────────────────────────────────────────────────────────
+# Execution Settings
+# ───────────────────────────────────────────────────────────────
+execution:
+  max_concurrent: 3
+  default_timeout: 300
+  retry_on_failure: false
+  log_output: true
+  log_path: "/var/log/homelab/scheduled"

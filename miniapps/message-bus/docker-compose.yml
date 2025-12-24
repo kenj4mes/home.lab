@@ -1,0 +1,62 @@
+# ═══════════════════════════════════════════════════════════════
+# 🏠 home.lab - Message Bus
+# Async inter-service messaging with priority queuing
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  message-bus:
+    image: python:3.11-slim
+    container_name: homelab-message-bus
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5100:5100"
+    environment:
+      - BUS_HOST=0.0.0.0
+      - BUS_PORT=5100
+      - REDIS_URL=redis://redis:6379/1
+      - MAX_HISTORY=1000
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./configs:/app/configs:ro
+      - bus-data:/app/data
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5100/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - homelab
+    labels:
+      - "homelab.service=message-bus"
+      - "homelab.category=core"
+      - "homelab.priority=9"
+
+  redis:
+    image: redis:7-alpine
+    container_name: homelab-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - homelab
+
+volumes:
+  bus-data:
+  redis-data:
+
+networks:
+  homelab:
+    external: true

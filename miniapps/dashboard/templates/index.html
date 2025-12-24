@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>home.lab - Dashboard</title>
+    <link rel="stylesheet" href="/static/css/design-system.css">
+    <style>
+        /* Dashboard Layout */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-sans);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-4) var(--space-6);
+            background: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            font-size: var(--text-xl);
+            font-weight: var(--font-bold);
+        }
+        
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--color-primary-500), var(--color-accent-cyan));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+        
+        /* Main Layout */
+        .main {
+            display: flex;
+            min-height: calc(100vh - 64px);
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: var(--color-bg-secondary);
+            border-right: 1px solid var(--color-border);
+            padding: var(--space-4);
+        }
+        
+        .nav-section {
+            margin-bottom: var(--space-6);
+        }
+        
+        .nav-section-title {
+            font-size: var(--text-xs);
+            font-weight: var(--font-semibold);
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-2);
+            padding: 0 var(--space-3);
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: var(--text-sm);
+            transition: all var(--duration-fast) var(--ease-default);
+        }
+        
+        .nav-item:hover {
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-primary);
+        }
+        
+        .nav-item.active {
+            background: var(--color-primary-600);
+            color: white;
+        }
+        
+        /* Content Area */
+        .content {
+            flex: 1;
+            padding: var(--space-6);
+            overflow-y: auto;
+        }
+        
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-6);
+        }
+        
+        .content-title {
+            font-size: var(--text-2xl);
+            font-weight: var(--font-bold);
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+        }
+        
+        .stat-card {
+            padding: var(--space-4);
+        }
+        
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-2);
+        }
+        
+        .stat-label {
+            font-size: var(--text-sm);
+            color: var(--color-text-tertiary);
+        }
+        
+        .stat-value {
+            font-size: var(--text-3xl);
+            font-weight: var(--font-bold);
+            margin-bottom: var(--space-1);
+        }
+        
+        .stat-change {
+            font-size: var(--text-xs);
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+        }
+        
+        .stat-change.positive {
+            color: var(--color-success);
+        }
+        
+        .stat-change.negative {
+            color: var(--color-error);
+        }
+        
+        /* Services Grid */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+        }
+        
+        .service-card {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            padding: var(--space-4);
+        }
+        
+        .service-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--color-bg-tertiary);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--text-xl);
+        }
+        
+        .service-info {
+            flex: 1;
+        }
+        
+        .service-name {
+            font-weight: var(--font-semibold);
+            margin-bottom: var(--space-1);
+        }
+        
+        .service-status {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            font-size: var(--text-sm);
+            color: var(--color-text-tertiary);
+        }
+        
+        .service-actions {
+            display: flex;
+            gap: var(--space-2);
+        }
+        
+        /* Charts */
+        .chart-container {
+            height: 300px;
+            margin-bottom: var(--space-6);
+        }
+        
+        /* Events Log */
+        .events-log {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .event-item {
+            display: flex;
+            gap: var(--space-4);
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .event-time {
+            font-size: var(--text-xs);
+            color: var(--color-text-muted);
+            font-family: var(--font-mono);
+            white-space: nowrap;
+        }
+        
+        .event-content {
+            flex: 1;
+        }
+        
+        .event-category {
+            font-size: var(--text-xs);
+            margin-bottom: var(--space-1);
+        }
+        
+        .event-message {
+            font-size: var(--text-sm);
+        }
+        
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: var(--space-2);
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">🏠</div>
+            <span>home.lab</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-ghost" onclick="refreshDashboard()">
+                🔄 Refresh
+            </button>
+            <button class="btn btn-secondary">
+                ⚙️ Settings
+            </button>
+        </div>
+    </header>
+    
+    <div class="main">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="nav-section">
+                <div class="nav-section-title">Overview</div>
+                <a href="#" class="nav-item active">📊 Dashboard</a>
+                <a href="#" class="nav-item">🖥️ Services</a>
+                <a href="#" class="nav-item">📈 Metrics</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">AI</div>
+                <a href="#" class="nav-item">🤖 Models</a>
+                <a href="#" class="nav-item">🧠 Orchestrator</a>
+                <a href="#" class="nav-item">💬 Chat</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Infrastructure</div>
+                <a href="#" class="nav-item">🐳 Containers</a>
+                <a href="#" class="nav-item">💾 Storage</a>
+                <a href="#" class="nav-item">🌐 Network</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div>
+                <a href="#" class="nav-item">📜 Events</a>
+                <a href="#" class="nav-item">🔔 Alerts</a>
+                <a href="#" class="nav-item">🔐 Security</a>
+            </div>
+        </nav>
+        
+        <!-- Content -->
+        <main class="content">
+            <div class="content-header">
+                <h1 class="content-title">Dashboard</h1>
+                <div class="quick-actions">
+                    <button class="btn btn-primary">+ Deploy Service</button>
+                    <button class="btn btn-secondary">📋 View Logs</button>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">Services Running</span>
+                        <span class="badge badge-success">Healthy</span>
+                    </div>
+                    <div class="stat-value" id="services-count">--</div>
+                    <div class="stat-change positive">↑ All systems operational</div>
+                </div>
+                
+                <div class="card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">CPU Usage</span>
+                    </div>
+                    <div class="stat-value" id="cpu-usage">--%</div>
+                    <div class="progress" style="margin-top: var(--space-2)">
+                        <div class="progress-bar" id="cpu-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">Memory Usage</span>
+                    </div>
+                    <div class="stat-value" id="memory-usage">--%</div>
+                    <div class="progress" style="margin-top: var(--space-2)">
+                        <div class="progress-bar" id="memory-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">AI Requests Today</span>
+                    </div>
+                    <div class="stat-value" id="ai-requests">--</div>
+                    <div class="stat-change positive">↑ 12% from yesterday</div>
+                </div>
+            </div>
+            
+            <!-- Services -->
+            <h2 style="margin-bottom: var(--space-4); font-size: var(--text-lg);">Services</h2>
+            <div class="services-grid" id="services-grid">
+                <!-- Services will be populated by JavaScript -->
+            </div>
+            
+            <!-- Events -->
+            <h2 style="margin-bottom: var(--space-4); font-size: var(--text-lg);">Recent Events</h2>
+            <div class="card">
+                <div class="events-log" id="events-log">
+                    <!-- Events will be populated by JavaScript -->
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        // Dashboard JavaScript
+        const API_BASE = '';
+        
+        async function fetchServices() {
+            try {
+                // This would connect to real services
+                const services = [
+                    { name: 'Message Bus', icon: '📨', status: 'healthy', uptime: '99.9%' },
+                    { name: 'Event Store', icon: '📜', status: 'healthy', uptime: '99.8%' },
+                    { name: 'AI Orchestrator', icon: '🤖', status: 'healthy', uptime: '99.7%' },
+                    { name: 'Ollama', icon: '🧠', status: 'healthy', uptime: '99.5%' },
+                    { name: 'Redis', icon: '💾', status: 'healthy', uptime: '100%' },
+                    { name: 'Prometheus', icon: '📊', status: 'healthy', uptime: '99.9%' },
+                ];
+                
+                renderServices(services);
+                document.getElementById('services-count').textContent = services.length;
+            } catch (error) {
+                console.error('Failed to fetch services:', error);
+            }
+        }
+        
+        function renderServices(services) {
+            const grid = document.getElementById('services-grid');
+            grid.innerHTML = services.map(service => `
+                <div class="card service-card">
+                    <div class="service-icon">${service.icon}</div>
+                    <div class="service-info">
+                        <div class="service-name">${service.name}</div>
+                        <div class="service-status">
+                            <span class="status-indicator ${service.status}"></span>
+                            <span>Uptime: ${service.uptime}</span>
+                        </div>
+                    </div>
+                    <div class="service-actions">
+                        <button class="btn btn-ghost" title="Restart">🔄</button>
+                        <button class="btn btn-ghost" title="Logs">📋</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function fetchEvents() {
+            try {
+                // This would connect to event store
+                const events = [
+                    { time: '10:42:15', category: 'system', action: 'Health check passed', result: 'success' },
+                    { time: '10:40:00', category: 'ai', action: 'Model llama3.2 loaded', result: 'success' },
+                    { time: '10:35:22', category: 'service', action: 'Container started: ollama', result: 'success' },
+                    { time: '10:30:00', category: 'system', action: 'Scheduled backup completed', result: 'success' },
+                    { time: '10:15:45', category: 'security', action: 'Certificate renewed', result: 'success' },
+                ];
+                
+                renderEvents(events);
+            } catch (error) {
+                console.error('Failed to fetch events:', error);
+            }
+        }
+        
+        function renderEvents(events) {
+            const log = document.getElementById('events-log');
+            log.innerHTML = events.map(event => `
+                <div class="event-item">
+                    <div class="event-time">${event.time}</div>
+                    <div class="event-content">
+                        <div class="event-category">
+                            <span class="badge badge-${event.result === 'success' ? 'success' : 'error'}">${event.category}</span>
+                        </div>
+                        <div class="event-message">${event.action}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateMetrics() {
+            // Simulated metrics - would connect to Prometheus
+            const cpu = Math.floor(Math.random() * 30 + 20);
+            const memory = Math.floor(Math.random() * 20 + 40);
+            
+            document.getElementById('cpu-usage').textContent = cpu + '%';
+            document.getElementById('cpu-bar').style.width = cpu + '%';
+            
+            document.getElementById('memory-usage').textContent = memory + '%';
+            document.getElementById('memory-bar').style.width = memory + '%';
+            
+            document.getElementById('ai-requests').textContent = Math.floor(Math.random() * 500 + 1000);
+        }
+        
+        function refreshDashboard() {
+            fetchServices();
+            fetchEvents();
+            updateMetrics();
+        }
+        
+        // Initial load
+        refreshDashboard();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(refreshDashboard, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+# ═══════════════════════════════════════════════════════════════
+# 🏠 home.lab - Service Priority Configuration
+# Defines startup order, resource allocation, and task scheduling
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Priority levels and resource allocation rules"
+
+# ───────────────────────────────────────────────────────────────
+# Priority Levels (1-10)
+# Higher = More important
+# ───────────────────────────────────────────────────────────────
+levels:
+  critical:
+    range: [10, 10]
+    description: "System-critical infrastructure"
+    behavior:
+      auto_restart: true
+      max_restart_delay: 5
+      resource_guarantee: true
+      alert_on_failure: immediate
+      
+  high:
+    range: [8, 9]
+    description: "Important services with dependencies"
+    behavior:
+      auto_restart: true
+      max_restart_delay: 30
+      resource_guarantee: true
+      alert_on_failure: 60  # seconds
+      
+  normal:
+    range: [5, 7]
+    description: "Standard operational services"
+    behavior:
+      auto_restart: true
+      max_restart_delay: 120
+      resource_guarantee: false
+      alert_on_failure: 300
+      
+  low:
+    range: [3, 4]
+    description: "Optional or experimental services"
+    behavior:
+      auto_restart: true
+      max_restart_delay: 300
+      resource_guarantee: false
+      alert_on_failure: 600
+      
+  background:
+    range: [1, 2]
+    description: "Background tasks, can be paused"
+    behavior:
+      auto_restart: false
+      max_restart_delay: 600
+      resource_guarantee: false
+      alert_on_failure: null
+
+# ───────────────────────────────────────────────────────────────
+# Startup Order (dependency-aware)
+# ───────────────────────────────────────────────────────────────
+startup_phases:
+  - phase: 1
+    name: "Infrastructure"
+    parallel: false
+    services:
+      - nginx-proxy
+      - redis
+      - mariadb
+      - postgres
+    timeout: 120
+    
+  - phase: 2
+    name: "Core Services"
+    parallel: true
+    services:
+      - portainer
+      - prometheus
+    timeout: 60
+    
+  - phase: 3
+    name: "AI Foundation"
+    parallel: false
+    services:
+      - ollama
+      - chromadb
+    timeout: 180
+    
+  - phase: 4
+    name: "Applications"
+    parallel: true
+    services:
+      - open-webui
+      - jellyfin
+      - bookstack
+      - kiwix
+    timeout: 120
+    
+  - phase: 5
+    name: "Monitoring"
+    parallel: true
+    services:
+      - grafana
+      - loki
+    timeout: 60
+    
+  - phase: 6
+    name: "Blockchain"
+    parallel: false
+    services:
+      - base-node
+      - blockscout
+    timeout: 300
+    
+  - phase: 7
+    name: "Creative"
+    parallel: true
+    services:
+      - stable-diffusion
+      - comfyui
+    timeout: 180
+
+# ───────────────────────────────────────────────────────────────
+# Resource Allocation
+# ───────────────────────────────────────────────────────────────
+resource_allocation:
+  
+  # CPU allocation by priority
+  cpu:
+    critical:
+      min_shares: 1024
+      max_shares: 4096
+      weight: 100
+    high:
+      min_shares: 512
+      max_shares: 2048
+      weight: 75
+    normal:
+      min_shares: 256
+      max_shares: 1024
+      weight: 50
+    low:
+      min_shares: 128
+      max_shares: 512
+      weight: 25
+    background:
+      min_shares: 64
+      max_shares: 256
+      weight: 10
+      
+  # Memory allocation by priority
+  memory:
+    critical:
+      reservation: true
+      oom_kill_disable: true
+    high:
+      reservation: true
+      oom_kill_disable: false
+    normal:
+      reservation: false
+      oom_kill_disable: false
+    low:
+      reservation: false
+      oom_kill_disable: false
+    background:
+      reservation: false
+      oom_kill_disable: false
+
+# ───────────────────────────────────────────────────────────────
+# Task Queue Priority
+# ───────────────────────────────────────────────────────────────
+task_priority:
+  
+  # Priority levels for queued tasks
+  levels:
+    - name: CRITICAL
+      value: 10
+      timeout: 30
+      retries: 5
+      
+    - name: HIGH
+      value: 8
+      timeout: 60
+      retries: 3
+      
+    - name: NORMAL
+      value: 5
+      timeout: 120
+      retries: 3
+      
+    - name: LOW
+      value: 3
+      timeout: 300
+      retries: 2
+      
+    - name: BACKGROUND
+      value: 1
+      timeout: 600
+      retries: 1
+      
+  # Task type to priority mapping
+  type_mapping:
+    health_check: CRITICAL
+    security_scan: CRITICAL
+    service_restart: HIGH
+    config_update: HIGH
+    backup: NORMAL
+    model_download: LOW
+    cleanup: BACKGROUND
+    
+# ───────────────────────────────────────────────────────────────
+# Shutdown Order (reverse of startup)
+# ───────────────────────────────────────────────────────────────
+shutdown:
+  grace_period: 30
+  force_after: 60
+  order: "reverse_startup"
+  
+  # Services that need special handling
+  special_handling:
+    base-node:
+      grace_period: 120
+      pre_shutdown: "save_state"
+    ollama:
+      grace_period: 60
+      pre_shutdown: "unload_models"
+    mariadb:
+      grace_period: 60
+      pre_shutdown: "flush_tables"

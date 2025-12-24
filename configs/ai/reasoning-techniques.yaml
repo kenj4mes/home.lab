@@ -1,0 +1,262 @@
+# ═══════════════════════════════════════════════════════════════
+# 💭 home.lab - Reasoning Techniques
+# Advanced reasoning strategies for complex problem solving
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Reasoning technique definitions and configurations"
+
+# ───────────────────────────────────────────────────────────────
+# Reasoning Techniques
+# ───────────────────────────────────────────────────────────────
+techniques:
+  # ═══ FOUNDATIONAL ═══
+  chain_of_thought:
+    description: "Step-by-step reasoning"
+    type: sequential
+    prompt_prefix: "Let's think through this step by step:"
+    config:
+      show_steps: true
+      max_steps: 20
+      
+  tree_of_thought:
+    description: "Explore multiple reasoning paths"
+    type: branching
+    prompt_prefix: "Let's explore different approaches:"
+    config:
+      branches: 3
+      depth: 5
+      prune_threshold: 0.3
+      selection: best_first
+      
+  reflection:
+    description: "Self-critique and improvement"
+    type: iterative
+    prompt_prefix: "Let me reflect on my reasoning:"
+    config:
+      max_iterations: 3
+      improvement_threshold: 0.1
+
+  # ═══ ANALYTICAL ═══
+  decomposition:
+    description: "Break complex problems into parts"
+    type: structural
+    prompt_template: |
+      Break this problem into smaller sub-problems:
+      {problem}
+      
+      For each sub-problem, identify:
+      1. What needs to be solved
+      2. Dependencies on other sub-problems
+      3. Approach to solve it
+      
+  analogical:
+    description: "Reason by analogy to known cases"
+    type: associative
+    prompt_template: |
+      Find analogies to help solve this problem:
+      {problem}
+      
+      Consider similar problems from:
+      - Other domains
+      - Historical examples
+      - Abstract patterns
+      
+  counterfactual:
+    description: "Consider alternative scenarios"
+    type: hypothetical
+    prompt_template: |
+      Consider: What if things were different?
+      {scenario}
+      
+      Explore counterfactuals:
+      - What if X happened instead?
+      - What would change if Y was different?
+      - What are the necessary conditions?
+
+  # ═══ METACOGNITIVE ═══
+  confidence_calibration:
+    description: "Assess confidence in conclusions"
+    type: evaluative
+    prompt_template: |
+      Evaluate your confidence in this conclusion:
+      {conclusion}
+      
+      Consider:
+      - Evidence strength (1-10)
+      - Reasoning soundness (1-10)
+      - Alternative explanations
+      - Knowledge gaps
+      
+      Final confidence: [0.0-1.0]
+      
+  uncertainty_quantification:
+    description: "Quantify what we don't know"
+    type: evaluative
+    prompt_template: |
+      For this analysis:
+      {analysis}
+      
+      Identify uncertainties:
+      - Known unknowns (what we know we don't know)
+      - Possible unknown unknowns
+      - Assumptions made
+      - Data limitations
+      
+  self_critique:
+    description: "Criticize own reasoning"
+    type: corrective
+    prompt_template: |
+      Critique this reasoning:
+      {reasoning}
+      
+      Look for:
+      - Logical fallacies
+      - Unsupported assumptions
+      - Missing considerations
+      - Bias indicators
+      - Overconfidence
+
+  # ═══ CREATIVE ═══
+  lateral_thinking:
+    description: "Approach from unexpected angles"
+    type: creative
+    prompt_template: |
+      Think laterally about this problem:
+      {problem}
+      
+      Consider:
+      - Reverse the problem
+      - Challenge all assumptions
+      - Random entry points
+      - Provocation techniques
+      
+  synthesis:
+    description: "Combine ideas into new wholes"
+    type: creative
+    prompt_template: |
+      Synthesize these elements:
+      {elements}
+      
+      Create something new by:
+      - Finding unexpected connections
+      - Merging complementary aspects
+      - Resolving apparent contradictions
+
+  # ═══ SPECIALIZED ═══
+  causal_reasoning:
+    description: "Understand cause and effect"
+    type: analytical
+    prompt_template: |
+      Analyze the causal structure:
+      {situation}
+      
+      Map:
+      - Direct causes
+      - Contributing factors
+      - Causal chains
+      - Feedback loops
+      
+  temporal_reasoning:
+    description: "Reason about time and sequence"
+    type: analytical
+    prompt_template: |
+      Analyze the temporal aspects:
+      {scenario}
+      
+      Consider:
+      - Sequence of events
+      - Duration and timing
+      - Past influences on present
+      - Future implications
+      
+  spatial_reasoning:
+    description: "Reason about space and structure"
+    type: analytical
+    prompt_template: |
+      Analyze the spatial/structural aspects:
+      {scenario}
+      
+      Consider:
+      - Relationships and positions
+      - Boundaries and connections
+      - Scale and proportion
+      - Topology
+
+# ───────────────────────────────────────────────────────────────
+# Technique Selection Rules
+# ───────────────────────────────────────────────────────────────
+selection:
+  rules:
+    - condition: "task.type == 'math'"
+      techniques: [chain_of_thought, decomposition]
+      
+    - condition: "task.type == 'code'"
+      techniques: [decomposition, self_critique]
+      
+    - condition: "task.type == 'creative'"
+      techniques: [lateral_thinking, synthesis]
+      
+    - condition: "task.complexity > 0.7"
+      techniques: [tree_of_thought, reflection]
+      
+    - condition: "task.requires_certainty"
+      techniques: [confidence_calibration, uncertainty_quantification]
+      
+  defaults:
+    simple: [chain_of_thought]
+    medium: [chain_of_thought, reflection]
+    complex: [tree_of_thought, decomposition, self_critique]
+
+# ───────────────────────────────────────────────────────────────
+# Composite Techniques
+# ───────────────────────────────────────────────────────────────
+composites:
+  deep_analysis:
+    description: "Comprehensive analysis pipeline"
+    sequence:
+      - decomposition
+      - chain_of_thought
+      - causal_reasoning
+      - self_critique
+      - confidence_calibration
+      
+  creative_problem_solving:
+    description: "Creative solution generation"
+    sequence:
+      - lateral_thinking
+      - analogical
+      - synthesis
+      - reflection
+      
+  rigorous_reasoning:
+    description: "High-confidence reasoning"
+    sequence:
+      - chain_of_thought
+      - counterfactual
+      - self_critique
+      - uncertainty_quantification
+      - confidence_calibration
+
+# ───────────────────────────────────────────────────────────────
+# Quality Metrics
+# ───────────────────────────────────────────────────────────────
+metrics:
+  track:
+    - technique_used
+    - reasoning_depth
+    - steps_taken
+    - confidence_score
+    - time_to_solution
+    
+  quality_indicators:
+    high_quality:
+      - explicit_reasoning: true
+      - self_critique_performed: true
+      - confidence_calibrated: true
+      - assumptions_stated: true
+      
+    low_quality:
+      - single_step_answer: true
+      - no_reflection: true
+      - overconfident: true

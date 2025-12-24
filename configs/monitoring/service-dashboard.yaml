@@ -1,0 +1,222 @@
+# ═══════════════════════════════════════════════════════════════
+# 🎛️ home.lab - Service Dashboard Configuration
+# Comprehensive service monitoring and control
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Service monitoring dashboard"
+
+# ───────────────────────────────────────────────────────────────
+# Dashboard Sections
+# ───────────────────────────────────────────────────────────────
+sections:
+  # ─── Overview ───
+  overview:
+    title: "System Overview"
+    layout: grid
+    columns: 4
+    
+    widgets:
+      - type: status_indicator
+        title: "System Status"
+        source: health_aggregate
+        size: large
+        
+      - type: counter
+        title: "Services Running"
+        source: docker
+        query: "containers.running"
+        
+      - type: counter
+        title: "Active Alerts"
+        source: alertmanager
+        query: "alerts.active"
+        
+      - type: uptime
+        title: "System Uptime"
+        source: node_exporter
+
+  # ─── Infrastructure ───
+  infrastructure:
+    title: "Infrastructure"
+    layout: grid
+    columns: 3
+    
+    widgets:
+      - type: gauge
+        title: "CPU Usage"
+        source: prometheus
+        query: 'avg(rate(process_cpu_seconds_total[1m])) * 100'
+        max: 100
+        thresholds: [60, 80, 95]
+        
+      - type: gauge
+        title: "Memory Usage"
+        source: prometheus
+        query: '(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100'
+        max: 100
+        thresholds: [60, 80, 95]
+        
+      - type: gauge
+        title: "Disk Usage"
+        source: prometheus
+        query: '(node_filesystem_size_bytes - node_filesystem_avail_bytes) / node_filesystem_size_bytes * 100'
+        max: 100
+        thresholds: [60, 80, 95]
+        
+      - type: time_series
+        title: "Network I/O"
+        source: prometheus
+        queries:
+          - label: "In"
+            query: 'rate(node_network_receive_bytes_total[5m])'
+          - label: "Out"
+            query: 'rate(node_network_transmit_bytes_total[5m])'
+        span: 6h
+        
+      - type: time_series
+        title: "Disk I/O"
+        source: prometheus
+        queries:
+          - label: "Read"
+            query: 'rate(node_disk_read_bytes_total[5m])'
+          - label: "Write"
+            query: 'rate(node_disk_written_bytes_total[5m])'
+        span: 6h
+
+  # ─── Services ───
+  services:
+    title: "Services"
+    layout: table
+    
+    columns:
+      - field: name
+        title: "Service"
+        sortable: true
+        
+      - field: status
+        title: "Status"
+        type: status_badge
+        
+      - field: cpu
+        title: "CPU"
+        type: percentage
+        
+      - field: memory
+        title: "Memory"
+        type: bytes
+        
+      - field: uptime
+        title: "Uptime"
+        type: duration
+        
+      - field: actions
+        title: "Actions"
+        type: action_buttons
+        buttons: [restart, stop, logs]
+        
+    source: docker
+    query: "containers.*"
+    filter: "labels.homelab.service"
+
+  # ─── AI ───
+  ai:
+    title: "AI Services"
+    layout: grid
+    columns: 2
+    
+    widgets:
+      - type: model_status
+        title: "Loaded Models"
+        source: ai_orchestrator
+        endpoint: /models
+        
+      - type: time_series
+        title: "Inference Latency"
+        source: ai_orchestrator
+        metric: inference_latency_seconds
+        percentiles: [50, 95, 99]
+        span: 1h
+        
+      - type: counter
+        title: "Requests/min"
+        source: ai_orchestrator
+        query: 'rate(requests_total[1m]) * 60'
+        
+      - type: gauge
+        title: "GPU Memory"
+        source: nvidia_smi
+        query: 'memory_used / memory_total * 100'
+        max: 100
+
+  # ─── Events ───
+  events:
+    title: "Recent Events"
+    layout: log_stream
+    
+    source: event_store
+    limit: 50
+    columns:
+      - timestamp
+      - category
+      - action
+      - actor
+      - result
+    filters:
+      categories:
+        - system
+        - security
+        - error
+        - ai
+
+  # ─── Alerts ───
+  alerts:
+    title: "Active Alerts"
+    layout: alert_list
+    
+    source: alertmanager
+    show_resolved: false
+    group_by: severity
+    
+    actions:
+      - silence
+      - acknowledge
+      - investigate
+
+# ───────────────────────────────────────────────────────────────
+# Quick Actions
+# ───────────────────────────────────────────────────────────────
+quick_actions:
+  - name: "Restart All"
+    icon: refresh
+    confirmation: true
+    command: "docker compose restart"
+    
+  - name: "Clear Caches"
+    icon: trash
+    confirmation: true
+    command: "redis-cli FLUSHALL"
+    
+  - name: "Pull Updates"
+    icon: download
+    confirmation: true
+    command: "docker compose pull"
+    
+  - name: "View Logs"
+    icon: file-text
+    command: "docker compose logs -f --tail=100"
+    
+  - name: "Backup Now"
+    icon: save
+    command: "scripts/backup.sh"
+
+# ───────────────────────────────────────────────────────────────
+# Refresh Intervals
+# ───────────────────────────────────────────────────────────────
+refresh:
+  overview: 5s
+  infrastructure: 10s
+  services: 15s
+  ai: 30s
+  events: 10s
+  alerts: 5s

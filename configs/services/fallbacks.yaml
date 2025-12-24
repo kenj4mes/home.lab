@@ -1,0 +1,221 @@
+# ═══════════════════════════════════════════════════════════════
+# 🏠 home.lab - Service Fallback Configuration
+# Automatic failover chains and degraded mode behavior
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Fallback chains and failover configuration"
+
+# ───────────────────────────────────────────────────────────────
+# Fallback Chains
+# When primary fails, try alternatives in order
+# ───────────────────────────────────────────────────────────────
+chains:
+
+  # AI Model Fallbacks
+  ai-inference:
+    description: "LLM inference fallback chain"
+    primary: ollama
+    fallbacks:
+      - service: ollama-backup
+        condition: "primary_down"
+        timeout: 30
+      - service: external-api
+        condition: "all_local_down"
+        timeout: 60
+        config:
+          rate_limit: 10  # requests per minute
+          
+  # Database Fallbacks
+  database-mysql:
+    description: "MySQL-compatible database fallback"
+    primary: mariadb
+    fallbacks:
+      - service: mariadb-replica
+        condition: "primary_down"
+        mode: read_only
+      - service: sqlite-fallback
+        condition: "all_down"
+        mode: degraded
+        
+  database-postgres:
+    description: "PostgreSQL database fallback"
+    primary: postgres
+    fallbacks:
+      - service: postgres-replica
+        condition: "primary_down"
+        mode: read_only
+
+  # Proxy Fallbacks
+  reverse-proxy:
+    description: "Reverse proxy fallback"
+    primary: nginx-proxy
+    fallbacks:
+      - service: traefik
+        condition: "primary_down"
+      - service: caddy
+        condition: "all_down"
+
+  # Vector DB Fallbacks
+  vector-store:
+    description: "Vector database fallback"
+    primary: chromadb
+    fallbacks:
+      - service: qdrant
+        condition: "primary_down"
+      - service: local-faiss
+        condition: "all_down"
+        mode: degraded
+
+# ───────────────────────────────────────────────────────────────
+# Degraded Mode Definitions
+# How services behave when not fully functional
+# ───────────────────────────────────────────────────────────────
+degraded_modes:
+
+  read_only:
+    description: "Accept reads only, reject writes"
+    capabilities:
+      read: true
+      write: false
+      delete: false
+    user_message: "Service is in read-only mode"
+    
+  cached:
+    description: "Serve from cache only"
+    capabilities:
+      read: true
+      write: false
+      delete: false
+      real_time: false
+    user_message: "Serving cached data"
+    max_cache_age: 3600  # seconds
+    
+  limited:
+    description: "Reduced functionality"
+    capabilities:
+      basic_operations: true
+      advanced_operations: false
+    user_message: "Limited functionality available"
+    
+  queue:
+    description: "Queue requests for later"
+    capabilities:
+      immediate: false
+      queued: true
+    user_message: "Request queued for processing"
+    max_queue_size: 1000
+    
+  offline:
+    description: "Completely offline"
+    capabilities:
+      read: false
+      write: false
+    user_message: "Service temporarily unavailable"
+
+# ───────────────────────────────────────────────────────────────
+# Failover Conditions
+# ───────────────────────────────────────────────────────────────
+conditions:
+
+  primary_down:
+    description: "Primary service is not responding"
+    checks:
+      - type: health_check
+        consecutive_failures: 3
+      - type: response_time
+        threshold_ms: 5000
+        
+  degraded:
+    description: "Primary is slow or returning errors"
+    checks:
+      - type: error_rate
+        threshold_percent: 10
+      - type: response_time
+        threshold_ms: 2000
+        
+  overloaded:
+    description: "Primary is at capacity"
+    checks:
+      - type: queue_depth
+        threshold: 100
+      - type: cpu_usage
+        threshold_percent: 90
+        
+  all_local_down:
+    description: "All local services unavailable"
+    checks:
+      - type: all_services
+        status: down
+        
+  all_down:
+    description: "No services available"
+    checks:
+      - type: all_fallbacks
+        status: exhausted
+
+# ───────────────────────────────────────────────────────────────
+# Failover Behavior
+# ───────────────────────────────────────────────────────────────
+behavior:
+
+  # How quickly to failover
+  timing:
+    detection_interval: 10  # seconds between checks
+    min_failures: 3         # failures before failover
+    cooldown: 300          # seconds before retry primary
+    
+  # Notifications
+  notifications:
+    on_failover:
+      - channel: discord
+        priority: high
+      - channel: log
+        priority: normal
+    on_recovery:
+      - channel: discord
+        priority: normal
+      - channel: log
+        priority: normal
+        
+  # Automatic recovery
+  recovery:
+    auto_failback: true
+    failback_delay: 60     # seconds to wait after primary recovers
+    health_check_count: 3  # successful checks before failback
+
+# ───────────────────────────────────────────────────────────────
+# Circuit Breaker Integration
+# ───────────────────────────────────────────────────────────────
+circuit_breaker:
+  enabled: true
+  
+  defaults:
+    failure_threshold: 5    # failures to open circuit
+    success_threshold: 3    # successes to close circuit
+    timeout: 60            # seconds in open state
+    half_open_requests: 3  # test requests in half-open
+    
+  # Per-service overrides
+  overrides:
+    base-node:
+      failure_threshold: 3
+      timeout: 120
+    external-api:
+      failure_threshold: 10
+      timeout: 300
+
+# ───────────────────────────────────────────────────────────────
+# Health Check Override During Failover
+# ───────────────────────────────────────────────────────────────
+health_during_failover:
+  
+  # More aggressive checking during failover
+  active_failover:
+    interval: 5          # faster checks
+    timeout: 5
+    
+  # Normal checking when stable
+  stable:
+    interval: 30
+    timeout: 10

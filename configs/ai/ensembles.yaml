@@ -1,0 +1,255 @@
+# ═══════════════════════════════════════════════════════════════
+# 🧠 home.lab - Ensemble Patterns
+# Multi-model orchestration strategies
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "AI ensemble execution patterns"
+
+# ───────────────────────────────────────────────────────────────
+# Ensemble Strategies
+# ───────────────────────────────────────────────────────────────
+strategies:
+  # ─── Consensus Strategy ───
+  # All models vote, aggregate results
+  consensus:
+    description: "Multiple models vote on the answer"
+    min_models: 2
+    max_models: 5
+    timeout_seconds: 120
+    
+    aggregation_methods:
+      majority_vote:
+        description: "Simple majority wins"
+        tie_breaker: first_responder
+        
+      weighted_vote:
+        description: "Weight by model confidence"
+        confidence_threshold: 0.7
+        
+      unanimous:
+        description: "All must agree"
+        fallback: flag_for_review
+
+  # ─── Diverse Strategy ───
+  # Models generate different perspectives
+  diverse:
+    description: "Collect diverse perspectives"
+    min_models: 2
+    max_models: 4
+    timeout_seconds: 90
+    
+    merge_methods:
+      concatenate:
+        description: "Combine all responses"
+        separator: "\n---\n"
+        
+      deduplicate:
+        description: "Remove redundant content"
+        similarity_threshold: 0.85
+        
+      synthesize:
+        description: "AI synthesizes final answer"
+        synthesizer_model: llama3.2
+
+  # ─── Generate-Critique Strategy ───
+  # One generates, another critiques, iterate
+  generate_critique:
+    description: "Iterative generation and critique"
+    max_iterations: 3
+    timeout_seconds: 180
+    
+    phases:
+      generate:
+        prompt_template: |
+          Generate a response to the following:
+          {user_input}
+          
+      critique:
+        prompt_template: |
+          Review this response for accuracy and quality:
+          {generated_response}
+          
+          Identify any issues and suggest improvements.
+          
+      refine:
+        prompt_template: |
+          Improve this response based on the critique:
+          Original: {generated_response}
+          Critique: {critique}
+          
+    stop_conditions:
+      - "APPROVED"
+      - "no issues found"
+
+  # ─── Cascade Strategy ───
+  # Try models in order until success
+  cascade:
+    description: "Fallback through models on failure"
+    max_attempts: 3
+    timeout_per_model: 60
+    
+    failure_conditions:
+      - timeout
+      - error
+      - low_confidence
+      - refusal
+      
+    confidence_threshold: 0.6
+
+  # ─── Parallel Strategy ───
+  # Run all in parallel, take fastest
+  parallel:
+    description: "Race models, take fastest"
+    timeout_seconds: 30
+    
+    selection:
+      first_valid:
+        description: "Take first valid response"
+        
+      highest_confidence:
+        description: "Wait for all, take highest confidence"
+        max_wait_seconds: 45
+
+  # ─── Specialist Strategy ───
+  # Route subtasks to specialized models
+  specialist:
+    description: "Decompose and route to specialists"
+    
+    decomposition:
+      model: llama3.2
+      prompt_template: |
+        Break this task into subtasks:
+        {user_input}
+        
+        Return JSON: {"subtasks": [...]}
+        
+    routing:
+      code: qwen2.5-coder
+      math: deepseek-r1
+      general: llama3.2
+      embeddings: nomic-embed-text
+      
+    aggregation:
+      model: llama3.2
+      prompt_template: |
+        Combine these subtask results into a final answer:
+        {subtask_results}
+
+# ───────────────────────────────────────────────────────────────
+# Pre-defined Ensembles
+# ───────────────────────────────────────────────────────────────
+ensembles:
+  # ─── Code Quality ───
+  code_review:
+    name: "Code Review Ensemble"
+    strategy: consensus
+    models:
+      - qwen2.5-coder
+      - llama3.2
+    config:
+      aggregation: weighted_vote
+      confidence_threshold: 0.7
+    system_prompt: |
+      You are a senior code reviewer. Analyze the code for:
+      - Bugs and potential issues
+      - Security vulnerabilities
+      - Performance concerns
+      - Code style and best practices
+      
+  code_generation:
+    name: "Code Generation with Review"
+    strategy: generate_critique
+    models:
+      generator: qwen2.5-coder
+      critic: llama3.2
+    config:
+      max_iterations: 2
+    system_prompts:
+      generator: "You are an expert programmer. Write clean, efficient code."
+      critic: "You are a code reviewer. Find bugs, security issues, and improvements."
+
+  # ─── Analysis ───
+  deep_analysis:
+    name: "Deep Analysis Ensemble"
+    strategy: diverse
+    models:
+      - llama3.2
+      - deepseek-r1
+    config:
+      merge: synthesize
+      synthesizer_model: llama3.2
+    system_prompt: |
+      Provide a thorough analysis from your perspective.
+      Consider multiple angles and implications.
+
+  fact_check:
+    name: "Fact Checking Ensemble"
+    strategy: consensus
+    models:
+      - llama3.2
+      - deepseek-r1
+    config:
+      aggregation: unanimous
+      fallback: flag_for_review
+    system_prompt: |
+      Verify the factual accuracy of the following claim.
+      If uncertain, say "UNCERTAIN" with your reasoning.
+
+  # ─── Creative ───
+  creative_brainstorm:
+    name: "Creative Brainstorm"
+    strategy: diverse
+    models:
+      - llama3.2
+      - gemma2
+    config:
+      merge: deduplicate
+      similarity_threshold: 0.8
+    system_prompt: |
+      Generate creative ideas. Think outside the box.
+      Provide unique perspectives.
+
+  # ─── Problem Solving ───
+  problem_solver:
+    name: "Complex Problem Solver"
+    strategy: specialist
+    models:
+      decomposer: llama3.2
+      specialists:
+        reasoning: deepseek-r1
+        code: qwen2.5-coder
+        general: llama3.2
+      aggregator: llama3.2
+    system_prompt: |
+      Solve this problem step by step.
+      Show your reasoning clearly.
+
+# ───────────────────────────────────────────────────────────────
+# Quality Metrics
+# ───────────────────────────────────────────────────────────────
+metrics:
+  track:
+    - response_time_ms
+    - token_count
+    - confidence_score
+    - agreement_ratio
+    - iteration_count
+    
+  thresholds:
+    max_response_time_ms: 60000
+    min_confidence: 0.5
+    min_agreement: 0.6
+    
+  alerts:
+    low_agreement:
+      condition: "agreement_ratio < 0.5"
+      action: log_warning
+      
+    slow_response:
+      condition: "response_time_ms > 30000"
+      action: log_warning
+      
+    low_confidence:
+      condition: "confidence_score < 0.4"
+      action: flag_for_review

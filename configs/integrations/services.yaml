@@ -1,0 +1,200 @@
+# ═══════════════════════════════════════════════════════════════
+# 🔗 home.lab - Service Integration Configuration
+# Cross-service communication patterns
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Service integration and communication patterns"
+
+# ───────────────────────────────────────────────────────────────
+# Service Registry
+# ───────────────────────────────────────────────────────────────
+services:
+  # Core Infrastructure
+  message-bus:
+    url: http://message-bus:5100
+    health: /health
+    priority: 1
+    required: true
+    
+  event-store:
+    url: http://event-store:5101
+    health: /health
+    priority: 2
+    required: true
+    
+  # AI Services
+  ai-orchestrator:
+    url: http://ai-orchestrator:5200
+    health: /health
+    priority: 3
+    required: false
+    
+  ollama:
+    url: http://ollama:11434
+    health: /api/tags
+    priority: 4
+    required: false
+    
+  # Data Services
+  redis:
+    url: redis://redis:6379
+    priority: 1
+    required: true
+    
+  postgres:
+    url: postgres://postgres:5432
+    priority: 2
+    required: false
+    
+  # Monitoring
+  prometheus:
+    url: http://prometheus:9090
+    health: /-/healthy
+    priority: 5
+    required: false
+    
+  grafana:
+    url: http://grafana:3000
+    health: /api/health
+    priority: 6
+    required: false
+
+# ───────────────────────────────────────────────────────────────
+# Communication Patterns
+# ───────────────────────────────────────────────────────────────
+patterns:
+  # Publish-Subscribe
+  pub_sub:
+    broker: message-bus
+    channels:
+      system-events:
+        description: "System-wide events"
+        publishers: ["*"]
+        subscribers: ["event-store", "dashboard"]
+        
+      ai-requests:
+        description: "AI inference requests"
+        publishers: ["*"]
+        subscribers: ["ai-orchestrator"]
+        
+      alerts:
+        description: "Alert notifications"
+        publishers: ["prometheus", "health-check"]
+        subscribers: ["dashboard", "slack-notifier"]
+        
+      config-changes:
+        description: "Configuration updates"
+        publishers: ["config-manager"]
+        subscribers: ["*"]
+
+  # Request-Response
+  request_response:
+    timeout_seconds: 30
+    retry_policy:
+      max_attempts: 3
+      backoff: exponential
+      
+  # Event Sourcing
+  event_sourcing:
+    store: event-store
+    snapshot_interval: 100
+    retention_days: 90
+
+# ───────────────────────────────────────────────────────────────
+# API Gateway Routes
+# ───────────────────────────────────────────────────────────────
+gateway:
+  routes:
+    - path: /api/ai/*
+      service: ai-orchestrator
+      strip_prefix: /api/ai
+      auth_required: true
+      rate_limit: 100/min
+      
+    - path: /api/events/*
+      service: event-store
+      strip_prefix: /api/events
+      auth_required: true
+      rate_limit: 500/min
+      
+    - path: /api/bus/*
+      service: message-bus
+      strip_prefix: /api/bus
+      auth_required: true
+      rate_limit: 1000/min
+      
+    - path: /metrics
+      service: prometheus
+      auth_required: false
+      
+    - path: /dashboard/*
+      service: dashboard
+      strip_prefix: /dashboard
+      auth_required: false
+
+  middleware:
+    - cors
+    - rate_limit
+    - auth
+    - logging
+    - metrics
+
+# ───────────────────────────────────────────────────────────────
+# Health Aggregation
+# ───────────────────────────────────────────────────────────────
+health:
+  aggregation:
+    strategy: all_required_healthy
+    
+  check_interval: 30s
+  timeout: 5s
+  
+  status_levels:
+    healthy:
+      condition: "all required services healthy"
+      
+    degraded:
+      condition: "required healthy, some optional unhealthy"
+      
+    unhealthy:
+      condition: "any required service unhealthy"
+
+# ───────────────────────────────────────────────────────────────
+# Circuit Breakers
+# ───────────────────────────────────────────────────────────────
+circuit_breakers:
+  default:
+    failure_threshold: 5
+    success_threshold: 3
+    timeout_seconds: 30
+    half_open_requests: 3
+    
+  per_service:
+    ollama:
+      failure_threshold: 3
+      timeout_seconds: 60  # AI can be slow
+      
+    external-api:
+      failure_threshold: 10
+      timeout_seconds: 10
+
+# ───────────────────────────────────────────────────────────────
+# Service Mesh
+# ───────────────────────────────────────────────────────────────
+mesh:
+  discovery:
+    method: docker_dns
+    refresh_interval: 30s
+    
+  load_balancing:
+    strategy: round_robin
+    
+  tracing:
+    enabled: true
+    sampling_rate: 0.1
+    exporter: jaeger
+    
+  metrics:
+    enabled: true
+    exporter: prometheus

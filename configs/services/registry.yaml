@@ -1,0 +1,355 @@
+# ═══════════════════════════════════════════════════════════════
+# 🏠 home.lab - Service Registry
+# Centralized catalog of all services with health endpoints
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Master service registry for home.lab infrastructure"
+
+# ───────────────────────────────────────────────────────────────
+# Service Categories
+# ───────────────────────────────────────────────────────────────
+categories:
+  core:
+    description: "Essential infrastructure services"
+    priority_range: [8, 10]
+    
+  ai:
+    description: "AI and machine learning services"
+    priority_range: [7, 10]
+    
+  media:
+    description: "Media streaming and management"
+    priority_range: [5, 8]
+    
+  blockchain:
+    description: "Blockchain nodes and explorers"
+    priority_range: [6, 9]
+    
+  monitoring:
+    description: "Observability and metrics"
+    priority_range: [7, 9]
+    
+  creative:
+    description: "Creative AI generation"
+    priority_range: [4, 7]
+    
+  security:
+    description: "Security and authentication"
+    priority_range: [8, 10]
+    
+  experimental:
+    description: "Bleeding-edge features"
+    priority_range: [1, 5]
+
+# ───────────────────────────────────────────────────────────────
+# Core Services
+# ───────────────────────────────────────────────────────────────
+services:
+  
+  # Infrastructure
+  nginx-proxy:
+    name: "Nginx Proxy Manager"
+    category: core
+    priority: 10
+    port: 80
+    health:
+      endpoint: "http://localhost:81/api"
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["proxy", "ssl", "routing"]
+    
+  portainer:
+    name: "Portainer"
+    category: core
+    priority: 9
+    port: 9000
+    health:
+      endpoint: "http://localhost:9000/api/status"
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["docker", "management", "ui"]
+
+  # AI Services
+  ollama:
+    name: "Ollama LLM"
+    category: ai
+    priority: 10
+    port: 11434
+    health:
+      endpoint: "http://localhost:11434/api/tags"
+      interval: 30
+      timeout: 15
+      retries: 3
+    dependencies: []
+    resources:
+      gpu: optional
+      memory_min: "8GB"
+    tags: ["llm", "inference", "local"]
+    
+  open-webui:
+    name: "Open WebUI"
+    category: ai
+    priority: 9
+    port: 3000
+    health:
+      endpoint: "http://localhost:3000/api/health"
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: ["ollama"]
+    tags: ["ui", "chat", "llm"]
+    
+  chromadb:
+    name: "ChromaDB"
+    category: ai
+    priority: 7
+    port: 8000
+    health:
+      endpoint: "http://localhost:8000/api/v1/heartbeat"
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["vector", "embeddings", "rag"]
+
+  # Media Services
+  jellyfin:
+    name: "Jellyfin"
+    category: media
+    priority: 8
+    port: 8096
+    health:
+      endpoint: "http://localhost:8096/health"
+      interval: 60
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["media", "streaming", "movies"]
+    
+  # Knowledge Services
+  kiwix:
+    name: "Kiwix"
+    category: core
+    priority: 7
+    port: 8081
+    health:
+      endpoint: "http://localhost:8081"
+      interval: 60
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["offline", "wikipedia", "knowledge"]
+    
+  bookstack:
+    name: "BookStack"
+    category: core
+    priority: 7
+    port: 8082
+    health:
+      endpoint: "http://localhost:8082/status"
+      interval: 60
+      timeout: 10
+      retries: 3
+    dependencies: ["mariadb"]
+    tags: ["wiki", "documentation", "notes"]
+
+  # Monitoring Services
+  prometheus:
+    name: "Prometheus"
+    category: monitoring
+    priority: 9
+    port: 9090
+    health:
+      endpoint: "http://localhost:9090/-/healthy"
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["metrics", "tsdb", "alerting"]
+    
+  grafana:
+    name: "Grafana"
+    category: monitoring
+    priority: 8
+    port: 3100
+    health:
+      endpoint: "http://localhost:3100/api/health"
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: ["prometheus"]
+    tags: ["dashboards", "visualization", "alerting"]
+    
+  loki:
+    name: "Loki"
+    category: monitoring
+    priority: 7
+    port: 3101
+    health:
+      endpoint: "http://localhost:3101/ready"
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["logs", "aggregation"]
+
+  # Blockchain Services
+  base-node:
+    name: "Base L2 Node"
+    category: blockchain
+    priority: 8
+    port: 8545
+    health:
+      endpoint: "http://localhost:8545"
+      method: POST
+      body: '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}'
+      interval: 60
+      timeout: 30
+      retries: 3
+    dependencies: []
+    resources:
+      disk_min: "500GB"
+      memory_min: "16GB"
+    tags: ["ethereum", "l2", "rpc"]
+    
+  blockscout:
+    name: "Blockscout Explorer"
+    category: blockchain
+    priority: 6
+    port: 4000
+    health:
+      endpoint: "http://localhost:4000/api/v2/stats"
+      interval: 60
+      timeout: 15
+      retries: 3
+    dependencies: ["base-node", "postgres"]
+    tags: ["explorer", "blockchain", "ui"]
+
+  # Creative AI Services
+  stable-diffusion:
+    name: "Stable Diffusion"
+    category: creative
+    priority: 6
+    port: 7860
+    health:
+      endpoint: "http://localhost:7860/sdapi/v1/options"
+      interval: 60
+      timeout: 30
+      retries: 3
+    dependencies: []
+    resources:
+      gpu: required
+      vram_min: "8GB"
+    tags: ["image", "generation", "diffusion"]
+    
+  comfyui:
+    name: "ComfyUI"
+    category: creative
+    priority: 5
+    port: 8188
+    health:
+      endpoint: "http://localhost:8188/system_stats"
+      interval: 60
+      timeout: 30
+      retries: 3
+    dependencies: []
+    resources:
+      gpu: required
+      vram_min: "8GB"
+    tags: ["workflow", "nodes", "image"]
+
+  # Database Services
+  mariadb:
+    name: "MariaDB"
+    category: core
+    priority: 9
+    port: 3306
+    health:
+      type: tcp
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["database", "sql", "mysql"]
+    
+  postgres:
+    name: "PostgreSQL"
+    category: core
+    priority: 9
+    port: 5432
+    health:
+      type: tcp
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["database", "sql"]
+    
+  redis:
+    name: "Redis"
+    category: core
+    priority: 8
+    port: 6379
+    health:
+      type: tcp
+      interval: 30
+      timeout: 10
+      retries: 3
+    dependencies: []
+    tags: ["cache", "queue", "pubsub"]
+
+# ───────────────────────────────────────────────────────────────
+# Service Groups (for batch operations)
+# ───────────────────────────────────────────────────────────────
+groups:
+  essential:
+    description: "Minimum services for basic operation"
+    services:
+      - nginx-proxy
+      - portainer
+      - ollama
+      - open-webui
+      
+  full-ai:
+    description: "Complete AI stack"
+    services:
+      - ollama
+      - open-webui
+      - chromadb
+      - stable-diffusion
+      - comfyui
+      
+  blockchain-dev:
+    description: "Blockchain development environment"
+    services:
+      - base-node
+      - blockscout
+      - postgres
+      
+  monitoring-full:
+    description: "Complete observability stack"
+    services:
+      - prometheus
+      - grafana
+      - loki
+
+# ───────────────────────────────────────────────────────────────
+# Health Check Configuration
+# ───────────────────────────────────────────────────────────────
+health_defaults:
+  interval: 30
+  timeout: 10
+  retries: 3
+  start_period: 60
+  
+# Status codes
+status_codes:
+  healthy: "green"
+  degraded: "yellow"
+  unhealthy: "red"
+  unknown: "gray"

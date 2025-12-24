@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backup-manager:
+    build: .
+    container_name: backup-manager
+    restart: unless-stopped
+    ports:
+      - "5501:5501"
+    environment:
+      - BACKUP_DIR=/var/backups/homelab
+      - BACKUP_RETENTION_DAYS=30
+      - MAX_BACKUPS=10
+    volumes:
+      - /var/backups/homelab:/var/backups/homelab
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - homelab_data:/data:ro
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5501/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  homelab:
+    external: true
+
+volumes:
+  homelab_data:
+    external: true

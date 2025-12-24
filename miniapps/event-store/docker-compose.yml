@@ -1,0 +1,43 @@
+# ═══════════════════════════════════════════════════════════════
+# 🏠 home.lab - Event Store
+# Immutable append-only event log with hash chaining
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  event-store:
+    image: python:3.11-slim
+    container_name: homelab-event-store
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5101:5101"
+    environment:
+      - STORE_HOST=0.0.0.0
+      - STORE_PORT=5101
+      - DATA_DIR=/app/data
+      - MAX_FILE_SIZE_MB=100
+      - RETENTION_DAYS=90
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./configs:/app/configs:ro
+      - event-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5101/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - homelab
+    labels:
+      - "homelab.service=event-store"
+      - "homelab.category=core"
+      - "homelab.priority=9"
+
+volumes:
+  event-data:
+
+networks:
+  homelab:
+    external: true

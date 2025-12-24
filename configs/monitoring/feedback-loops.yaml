@@ -1,0 +1,296 @@
+# ═══════════════════════════════════════════════════════════════
+# 📊 home.lab - Cybernetic Feedback Loop Configuration
+# Self-regulating monitoring with automatic remediation
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Cybernetic feedback system for self-regulation"
+
+# ───────────────────────────────────────────────────────────────
+# Feedback Loops
+# ───────────────────────────────────────────────────────────────
+loops:
+  # ─── Resource Loop ───
+  resource_regulation:
+    description: "Monitor and regulate resource usage"
+    interval_seconds: 30
+    
+    sensors:
+      - metric: cpu_usage_percent
+        source: prometheus
+        query: 'avg(rate(process_cpu_seconds_total[1m])) * 100'
+        
+      - metric: memory_usage_percent
+        source: prometheus
+        query: 'avg(process_resident_memory_bytes) / avg(node_memory_MemTotal_bytes) * 100'
+        
+      - metric: disk_usage_percent
+        source: prometheus
+        query: 'avg(1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100'
+        
+    thresholds:
+      warning: 70
+      critical: 85
+      emergency: 95
+      
+    actions:
+      warning:
+        - log_warning
+        - notify_slack
+        
+      critical:
+        - scale_down_background_tasks
+        - clear_caches
+        - notify_urgent
+        
+      emergency:
+        - stop_non_essential_services
+        - garbage_collect
+        - alert_on_call
+
+  # ─── Health Loop ───
+  health_regulation:
+    description: "Monitor service health and auto-heal"
+    interval_seconds: 15
+    
+    sensors:
+      - metric: service_health
+        source: health_checks
+        aggregation: all
+        
+      - metric: error_rate
+        source: prometheus
+        query: 'sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))'
+        
+      - metric: latency_p99
+        source: prometheus
+        query: 'histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))'
+        
+    thresholds:
+      unhealthy: 1  # Any unhealthy service
+      error_rate_high: 0.05  # 5% error rate
+      latency_high: 2.0  # 2 second p99
+      
+    actions:
+      unhealthy:
+        - restart_service
+        - notify_slack
+        - log_event
+        
+      error_rate_high:
+        - enable_circuit_breaker
+        - scale_replicas
+        - investigate_logs
+        
+      latency_high:
+        - increase_resources
+        - enable_caching
+        - check_dependencies
+
+  # ─── AI Performance Loop ───
+  ai_regulation:
+    description: "Monitor AI model performance"
+    interval_seconds: 60
+    
+    sensors:
+      - metric: inference_latency
+        source: ai_orchestrator
+        endpoint: /metrics
+        
+      - metric: model_load
+        source: ollama
+        endpoint: /api/status
+        
+      - metric: cache_hit_rate
+        source: redis
+        
+    thresholds:
+      latency_slow: 5.0  # 5 seconds
+      load_high: 0.8
+      cache_low: 0.5
+      
+    actions:
+      latency_slow:
+        - preload_models
+        - increase_batch_size
+        
+      load_high:
+        - queue_requests
+        - use_smaller_model
+        
+      cache_low:
+        - extend_cache_ttl
+        - precompute_common_queries
+
+  # ─── Cost Loop ───
+  cost_regulation:
+    description: "Monitor and optimize infrastructure costs"
+    interval_seconds: 3600  # hourly
+    
+    sensors:
+      - metric: container_count
+        source: docker
+        
+      - metric: storage_usage_gb
+        source: filesystem
+        
+      - metric: network_egress_gb
+        source: prometheus
+        
+    thresholds:
+      containers_high: 50
+      storage_high: 500  # GB
+      
+    actions:
+      containers_high:
+        - consolidate_services
+        - remove_unused_images
+        
+      storage_high:
+        - cleanup_old_logs
+        - compress_archives
+        - delete_temp_files
+
+# ───────────────────────────────────────────────────────────────
+# Remediation Actions
+# ───────────────────────────────────────────────────────────────
+actions:
+  # ─── Service Actions ───
+  restart_service:
+    type: docker
+    command: restart
+    cooldown_seconds: 300
+    max_retries: 3
+    
+  scale_replicas:
+    type: docker
+    command: scale
+    parameters:
+      direction: up
+      max: 5
+      
+  stop_non_essential_services:
+    type: docker
+    command: stop
+    targets:
+      priority: [low, background]
+      
+  # ─── Resource Actions ───
+  clear_caches:
+    type: api
+    targets:
+      - redis://redis:6379
+    command: FLUSHDB
+    
+  garbage_collect:
+    type: docker
+    command: prune
+    targets: [containers, images, volumes]
+    
+  increase_resources:
+    type: docker
+    command: update
+    parameters:
+      cpu_limit: "+0.5"
+      memory_limit: "+512M"
+      
+  # ─── AI Actions ───
+  preload_models:
+    type: api
+    target: ai_orchestrator
+    endpoint: /models/preload
+    
+  use_smaller_model:
+    type: config
+    target: ai_orchestrator
+    action: switch_model
+    parameters:
+      prefer: gemma2
+      
+  # ─── Notification Actions ───
+  log_warning:
+    type: log
+    level: warning
+    
+  log_event:
+    type: api
+    target: event_store
+    endpoint: /events
+    
+  notify_slack:
+    type: webhook
+    url: "${SLACK_WEBHOOK_URL}"
+    
+  notify_urgent:
+    type: webhook
+    url: "${SLACK_WEBHOOK_URL}"
+    parameters:
+      priority: urgent
+      channel: "#alerts"
+      
+  alert_on_call:
+    type: webhook
+    url: "${PAGERDUTY_URL}"
+
+# ───────────────────────────────────────────────────────────────
+# Dashboard Metrics
+# ───────────────────────────────────────────────────────────────
+dashboard:
+  panels:
+    system_health:
+      type: status_grid
+      metrics:
+        - service_health
+        - cpu_usage
+        - memory_usage
+        - disk_usage
+        
+    ai_performance:
+      type: time_series
+      metrics:
+        - inference_latency
+        - requests_per_second
+        - cache_hit_rate
+        
+    event_timeline:
+      type: log_panel
+      source: event_store
+      categories:
+        - system
+        - security
+        - error
+        
+    cost_tracker:
+      type: stat_panel
+      metrics:
+        - container_count
+        - storage_usage
+        - estimated_cost
+
+# ───────────────────────────────────────────────────────────────
+# Alert Rules
+# ───────────────────────────────────────────────────────────────
+alerts:
+  service_down:
+    condition: "health_check == 'failing'"
+    for: "2m"
+    severity: critical
+    actions: [restart_service, notify_slack]
+    
+  high_error_rate:
+    condition: "error_rate > 0.1"
+    for: "5m"
+    severity: warning
+    actions: [log_warning, notify_slack]
+    
+  disk_full:
+    condition: "disk_usage > 90"
+    for: "10m"
+    severity: critical
+    actions: [garbage_collect, notify_urgent]
+    
+  ai_slow:
+    condition: "inference_latency > 10"
+    for: "5m"
+    severity: warning
+    actions: [use_smaller_model, log_warning]

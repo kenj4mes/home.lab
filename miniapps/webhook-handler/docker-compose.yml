@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  webhook-handler:
+    build: .
+    container_name: webhook-handler
+    restart: unless-stopped
+    ports:
+      - "5400:5400"
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - DOCKERHUB_WEBHOOK_SECRET=${DOCKERHUB_WEBHOOK_SECRET}
+    volumes:
+      - ../../configs/integrations:/app/configs:ro
+      - ../../scripts:/opt/homelab/scripts:ro
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5400/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.webhooks.rule=PathPrefix(`/webhooks`)"
+
+networks:
+  homelab:
+    external: true
