@@ -1,0 +1,105 @@
+# ==============================================================================
+# 🔒 Secrets Management - HashiCorp Vault
+# ==============================================================================
+# Centralized secrets management with dynamic credentials
+#
+# Access: http://localhost:8200
+# CLI: vault login
+#
+# Usage:
+#   docker compose -f docker-compose.secrets.yml up -d
+#   docker exec -it vault vault operator init
+# ==============================================================================
+
+name: homelab
+
+networks:
+  homelab:
+    external: true
+  secrets:
+    name: secrets
+    driver: bridge
+
+volumes:
+  vault-data:
+  vault-logs:
+
+services:
+  # ============================================================================
+  # 🔒 HASHICORP VAULT - Secrets Management
+  # ============================================================================
+  # Features:
+  #   - Dynamic database credentials
+  #   - PKI certificate generation
+  #   - Encryption as a Service
+  #   - Kubernetes secrets injection
+  # ============================================================================
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_API_ADDR: http://127.0.0.1:8200
+      VAULT_LOCAL_CONFIG: |
+        {
+          "storage": {
+            "file": {
+              "path": "/vault/data"
+            }
+          },
+          "listener": {
+            "tcp": {
+              "address": "0.0.0.0:8200",
+              "tls_disable": true
+            }
+          },
+          "ui": true,
+          "default_lease_ttl": "168h",
+          "max_lease_ttl": "720h",
+          "telemetry": {
+            "prometheus_retention_time": "30s",
+            "disable_hostname": true
+          }
+        }
+    command: server
+    volumes:
+      - vault-data:/vault/data
+      - vault-logs:/vault/logs
+      - ./configs/vault/policies:/vault/policies:ro
+    ports:
+      - "8200:8200"
+    networks:
+      - homelab
+      - secrets
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🔄 VAULT AGENT - Sidecar for Auto-Auth
+  # ============================================================================
+  # Automatically renews tokens and caches secrets
+  # ============================================================================
+  vault-agent:
+    image: hashicorp/vault:latest
+    container_name: vault-agent
+    environment:
+      VAULT_ADDR: http://vault:8200
+    command: agent -config=/vault/config/agent.hcl
+    volumes:
+      - ./configs/vault/agent.hcl:/vault/config/agent.hcl:ro
+      - /tmp/vault-agent:/tmp/vault-agent
+    networks:
+      - secrets
+    depends_on:
+      vault:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - agent  # Only start with --profile agent

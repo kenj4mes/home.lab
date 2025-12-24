@@ -1,0 +1,132 @@
+# ==============================================================================
+# 🔄 ArgoCD - GitOps Application Controller
+# ==============================================================================
+# Declarative GitOps continuous delivery for Kubernetes
+#
+# CUSTOMIZE: Replace 'kenj4mes/home.lab' with your fork's URL
+#
+# Install ArgoCD:
+#   kubectl create namespace argocd
+#   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+#
+# Get admin password:
+#   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+#
+# Access UI:
+#   kubectl port-forward svc/argocd-server -n argocd 8443:443
+#   https://localhost:8443
+# ==============================================================================
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/component: gitops
+
+---
+# ArgoCD Application - HomeLab Core Services
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homelab-core
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kenj4mes/home.lab.git
+    targetRevision: HEAD
+    path: k8s/core
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+# ArgoCD Application - Monitoring Stack
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homelab-monitoring
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kenj4mes/home.lab.git
+    targetRevision: HEAD
+    path: k8s/monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application - AI Stack
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homelab-ai
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kenj4mes/home.lab.git
+    targetRevision: HEAD
+    path: k8s/ai
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ai
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application - Security Stack
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homelab-security
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kenj4mes/home.lab.git
+    targetRevision: HEAD
+    path: k8s/security
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: security
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

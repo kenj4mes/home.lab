@@ -1,0 +1,148 @@
+# ==============================================================================
+# 🚨 Prometheus Alert Rules - Application Services
+# ==============================================================================
+# Location: ${CONFIG_PATH}/prometheus/alerts/applications.yml
+# ==============================================================================
+
+groups:
+  # ============================================================================
+  # Ollama / AI Alerts
+  # ============================================================================
+  - name: ai-alerts
+    rules:
+      - alert: OllamaDown
+        expr: up{job="ollama"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ollama LLM server is down"
+          description: "Ollama has been unreachable for more than 2 minutes"
+
+      - alert: OllamaHighLatency
+        expr: histogram_quantile(0.95, rate(ollama_request_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ollama response latency is high"
+          description: "95th percentile latency is above 30 seconds"
+
+  # ============================================================================
+  # Media Stack Alerts
+  # ============================================================================
+  - name: media-alerts
+    rules:
+      - alert: JellyfinDown
+        expr: probe_success{job="blackbox", target=~".*jellyfin.*"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Jellyfin media server is down"
+          description: "Jellyfin has been unreachable for more than 5 minutes"
+
+      - alert: QbittorrentDown
+        expr: probe_success{job="blackbox", target=~".*qbittorrent.*"} == 0
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "qBittorrent is down"
+          description: "qBittorrent web UI is not responding"
+
+  # ============================================================================
+  # Database Alerts
+  # ============================================================================
+  - name: database-alerts
+    rules:
+      - alert: MySqlDown
+        expr: mysql_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL database is down"
+          description: "MySQL has been unreachable for more than 1 minute"
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL has been unreachable for more than 1 minute"
+
+      - alert: DatabaseConnectionsHigh
+        expr: (pg_stat_activity_count / pg_settings_max_connections) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection pool is filling up"
+          description: "More than 80% of max connections are in use"
+
+  # ============================================================================
+  # Blockchain Alerts
+  # ============================================================================
+  - name: blockchain-alerts
+    rules:
+      - alert: BaseNodeDown
+        expr: up{job="base-node"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Base blockchain node is down"
+          description: "Base node has been unreachable for more than 5 minutes"
+
+      - alert: BaseNodeBehind
+        expr: (chain_head_block - chain_sync_block) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Base node is behind"
+          description: "Node is {{ $value }} blocks behind head"
+
+      - alert: BaseNodeNotSyncing
+        expr: rate(chain_sync_block[5m]) == 0 and (chain_head_block - chain_sync_block) > 10
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Base node has stopped syncing"
+          description: "No new blocks synced in the last 10 minutes"
+
+  # ============================================================================
+  # Proxy/Ingress Alerts
+  # ============================================================================
+  - name: ingress-alerts
+    rules:
+      - alert: NginxHighErrorRate
+        expr: rate(nginx_http_requests_total{status=~"5.."}[5m]) / rate(nginx_http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on Nginx"
+          description: "More than 5% of requests are returning 5xx errors"
+
+      - alert: CertificateExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "Certificate for {{ $labels.target }} expires in {{ $value | printf \"%.0f\" }} days"
+
+      - alert: CertificateExpired
+        expr: (probe_ssl_earliest_cert_expiry - time()) < 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SSL certificate has expired!"
+          description: "Certificate for {{ $labels.target }} has expired"

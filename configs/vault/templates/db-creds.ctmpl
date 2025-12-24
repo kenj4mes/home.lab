@@ -1,0 +1,6 @@
+{{- with secret "database/creds/homelab-app" -}}
+{
+  "username": "{{ .Data.username }}",
+  "password": "{{ .Data.password }}"
+}
+{{- end -}}

@@ -1,0 +1,76 @@
+# ==============================================================================
+# 🗃️ Network Policy - Database Access Control
+# ==============================================================================
+# Restricts database access to only authorized application pods
+# ==============================================================================
+
+---
+# PostgreSQL - Only allow specific apps
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-access-control
+  namespace: databases
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Allow from apps with database-client label
+        - podSelector:
+            matchLabels:
+              database-client: "true"
+        # Allow from specific namespaces
+        - namespaceSelector:
+            matchLabels:
+              database-access: "allowed"
+      ports:
+        - protocol: TCP
+          port: 5432
+
+---
+# MySQL - Only allow BookStack
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql-bookstack-only
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: bookstack
+      ports:
+        - protocol: TCP
+          port: 3306
+
+---
+# Redis - Restrict to internal services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-internal-only
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              cache-client: "true"
+      ports:
+        - protocol: TCP
+          port: 6379

@@ -1,0 +1,128 @@
+# ==============================================================================
+# 🚨 Alertmanager Configuration
+# ==============================================================================
+# Routes alerts to notification channels (Discord, Slack, PagerDuty, etc.)
+#
+# Location: ${CONFIG_PATH}/alertmanager/alertmanager.yml
+# ==============================================================================
+
+global:
+  resolve_timeout: 5m
+  # SMTP settings for email alerts
+  # smtp_smarthost: 'smtp.gmail.com:587'
+  # smtp_from: 'alertmanager@homelab.local'
+  # smtp_auth_username: 'your-email@gmail.com'
+  # smtp_auth_password: 'app-password'
+
+# Templates for alert formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route tree
+route:
+  # Default receiver
+  receiver: 'discord-critical'
+  
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'namespace']
+  
+  # Wait before sending first notification
+  group_wait: 30s
+  
+  # Wait before sending updates
+  group_interval: 5m
+  
+  # Repeat interval for ongoing alerts
+  repeat_interval: 4h
+  
+  # Child routes
+  routes:
+    # Critical alerts -> Immediate notification
+    - receiver: 'discord-critical'
+      match:
+        severity: critical
+      group_wait: 10s
+      repeat_interval: 1h
+      
+    # Warning alerts -> Normal notification
+    - receiver: 'discord-warnings'
+      match:
+        severity: warning
+      group_wait: 1m
+      repeat_interval: 4h
+      
+    # Info alerts -> Low priority
+    - receiver: 'discord-info'
+      match:
+        severity: info
+      group_wait: 5m
+      repeat_interval: 24h
+      
+    # Watchdog (heartbeat)
+    - receiver: 'null'
+      match:
+        alertname: Watchdog
+
+# Inhibition rules - Suppress lower severity when higher exists
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'namespace']
+    
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'namespace']
+
+# Receivers
+receivers:
+  # Null receiver for silencing
+  - name: 'null'
+  
+  # Discord webhook for critical alerts
+  - name: 'discord-critical'
+    discord_configs:
+      - webhook_url: 'CHANGEME_DISCORD_WEBHOOK_URL'
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        message: |
+          {{ range .Alerts }}
+          **Alert:** {{ .Labels.alertname }}
+          **Severity:** {{ .Labels.severity }}
+          **Namespace:** {{ .Labels.namespace }}
+          **Description:** {{ .Annotations.description }}
+          **Started:** {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+  
+  # Discord webhook for warnings
+  - name: 'discord-warnings'
+    discord_configs:
+      - webhook_url: 'CHANGEME_DISCORD_WEBHOOK_URL'
+        title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+        message: |
+          {{ range .Alerts }}
+          **Alert:** {{ .Labels.alertname }}
+          **Description:** {{ .Annotations.description }}
+          {{ end }}
+  
+  # Discord webhook for info
+  - name: 'discord-info'
+    discord_configs:
+      - webhook_url: 'CHANGEME_DISCORD_WEBHOOK_URL'
+        title: 'ℹ️ Info: {{ .GroupLabels.alertname }}'
+        message: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+  
+  # Slack alternative
+  # - name: 'slack'
+  #   slack_configs:
+  #     - api_url: 'CHANGEME_SLACK_WEBHOOK_URL'
+  #       channel: '#alerts'
+  #       send_resolved: true
+  
+  # PagerDuty for on-call
+  # - name: 'pagerduty'
+  #   pagerduty_configs:
+  #     - service_key: 'CHANGEME_PAGERDUTY_KEY'
+  #       severity: 'critical'

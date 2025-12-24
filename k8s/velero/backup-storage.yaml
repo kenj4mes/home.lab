@@ -1,0 +1,60 @@
+# ==============================================================================
+# 🔄 Velero - Kubernetes Disaster Recovery
+# ==============================================================================
+# Backs up cluster state and persistent volumes to S3-compatible storage
+#
+# Install: velero install --provider aws --bucket homelab-backups ...
+# ==============================================================================
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/component: backup
+
+---
+# BackupStorageLocation - Where backups are stored
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: aws
+  objectStorage:
+    bucket: homelab-backups
+    prefix: velero
+  config:
+    region: us-east-1
+    s3ForcePathStyle: "true"
+    s3Url: http://minio.storage.svc:9000  # Internal MinIO
+  credential:
+    name: velero-credentials
+    key: cloud
+
+---
+# VolumeSnapshotLocation - For CSI snapshots
+apiVersion: velero.io/v1
+kind: VolumeSnapshotLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: csi
+
+---
+# Secret for S3 credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: velero-credentials
+  namespace: velero
+type: Opaque
+stringData:
+  cloud: |
+    [default]
+    aws_access_key_id=CHANGEME_MINIO_ACCESS_KEY
+    aws_secret_access_key=CHANGEME_MINIO_SECRET_KEY

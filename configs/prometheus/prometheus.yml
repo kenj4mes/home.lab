@@ -11,16 +11,16 @@ global:
   external_labels:
     monitor: 'homelab'
 
-# Alerting configuration (optional - configure alertmanager if needed)
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets:
-#           - alertmanager:9093
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
 
 # Rule files for alerts
-# rule_files:
-#   - "alerts/*.yml"
+rule_files:
+  - "alerts/*.yml"
 
 # ==============================================================================
 # SCRAPE CONFIGURATIONS

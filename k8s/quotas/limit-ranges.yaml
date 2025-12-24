@@ -1,0 +1,120 @@
+# ==============================================================================
+# 🎚️ Limit Ranges - Pod/Container Resource Constraints
+# ==============================================================================
+# Sets default and maximum resource limits for containers
+# Prevents any single container from consuming all cluster resources
+#
+# Apply: kubectl apply -f limit-ranges.yaml
+# ==============================================================================
+
+---
+# Default namespace limits
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: default
+spec:
+  limits:
+    # Container-level limits
+    - type: Container
+      default:
+        cpu: "500m"
+        memory: "512Mi"
+      defaultRequest:
+        cpu: "100m"
+        memory: "128Mi"
+      max:
+        cpu: "4"
+        memory: "8Gi"
+      min:
+        cpu: "50m"
+        memory: "64Mi"
+    # Pod-level limits
+    - type: Pod
+      max:
+        cpu: "8"
+        memory: "16Gi"
+    # PVC size limits
+    - type: PersistentVolumeClaim
+      max:
+        storage: "100Gi"
+      min:
+        storage: "1Gi"
+
+---
+# Production namespace - Tighter constraints
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: production-limits
+  namespace: production
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "1"
+        memory: "1Gi"
+      defaultRequest:
+        cpu: "250m"
+        memory: "256Mi"
+      max:
+        cpu: "4"
+        memory: "8Gi"
+      min:
+        cpu: "100m"
+        memory: "128Mi"
+    - type: Pod
+      max:
+        cpu: "8"
+        memory: "16Gi"
+
+---
+# AI namespace - Higher limits for ML workloads
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: ai-limits
+  namespace: ai
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "2"
+        memory: "4Gi"
+      defaultRequest:
+        cpu: "500m"
+        memory: "1Gi"
+      max:
+        cpu: "16"
+        memory: "64Gi"
+      min:
+        cpu: "100m"
+        memory: "256Mi"
+    - type: Pod
+      max:
+        cpu: "32"
+        memory: "128Gi"
+
+---
+# Media namespace - Memory-focused for transcoding
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: media-limits
+  namespace: media
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "2"
+        memory: "4Gi"
+      defaultRequest:
+        cpu: "500m"
+        memory: "1Gi"
+      max:
+        cpu: "8"
+        memory: "32Gi"
+      min:
+        cpu: "100m"
+        memory: "256Mi"

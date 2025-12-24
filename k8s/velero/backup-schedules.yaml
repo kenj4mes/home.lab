@@ -1,0 +1,130 @@
+# ==============================================================================
+# 📅 Velero Backup Schedules
+# ==============================================================================
+# Automated backup schedules for different workload types
+# ==============================================================================
+
+---
+# Full cluster backup - Daily at 2 AM
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-full-backup
+  namespace: velero
+spec:
+  schedule: "0 2 * * *"  # 2:00 AM daily
+  template:
+    includedNamespaces:
+      - "*"
+    excludedNamespaces:
+      - velero
+      - kube-system
+    includedResources:
+      - "*"
+    excludeClusterScopedResources: false
+    ttl: 720h  # 30 days retention
+    storageLocation: default
+    volumeSnapshotLocations:
+      - default
+    defaultVolumesToFsBackup: true
+    metadata:
+      labels:
+        backup-type: full
+        schedule: daily
+  useOwnerReferencesInBackup: false
+
+---
+# Production namespace - Every 6 hours
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: production-backup
+  namespace: velero
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  template:
+    includedNamespaces:
+      - production
+      - databases
+    includedResources:
+      - "*"
+    ttl: 168h  # 7 days retention
+    storageLocation: default
+    volumeSnapshotLocations:
+      - default
+    defaultVolumesToFsBackup: true
+    metadata:
+      labels:
+        backup-type: production
+        schedule: 6-hourly
+
+---
+# Database-only backup - Hourly
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: database-backup
+  namespace: velero
+spec:
+  schedule: "0 * * * *"  # Every hour
+  template:
+    includedNamespaces:
+      - databases
+    includedResources:
+      - persistentvolumeclaims
+      - persistentvolumes
+      - secrets
+      - configmaps
+    labelSelector:
+      matchLabels:
+        backup: critical
+    ttl: 72h  # 3 days retention
+    storageLocation: default
+    defaultVolumesToFsBackup: true
+    hooks:
+      resources:
+        - name: postgres-hook
+          includedNamespaces:
+            - databases
+          labelSelector:
+            matchLabels:
+              app: postgresql
+          pre:
+            - exec:
+                container: postgresql
+                command:
+                  - /bin/sh
+                  - -c
+                  - pg_dump -U postgres > /var/lib/postgresql/data/backup.sql
+                onError: Fail
+                timeout: 120s
+
+---
+# Configuration-only backup - Weekly
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: config-backup
+  namespace: velero
+spec:
+  schedule: "0 3 * * 0"  # 3 AM every Sunday
+  template:
+    includedNamespaces:
+      - "*"
+    includedResources:
+      - configmaps
+      - secrets
+      - serviceaccounts
+      - roles
+      - rolebindings
+      - clusterroles
+      - clusterrolebindings
+      - networkpolicies
+      - resourcequotas
+      - limitranges
+    ttl: 2160h  # 90 days retention
+    storageLocation: default
+    metadata:
+      labels:
+        backup-type: config
+        schedule: weekly

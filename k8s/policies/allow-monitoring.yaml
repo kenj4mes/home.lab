@@ -1,0 +1,71 @@
+# ==============================================================================
+# 📊 Network Policy - Allow Prometheus Scraping
+# ==============================================================================
+# Allows Prometheus to scrape metrics from all pods with metrics ports
+# ==============================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus
+  policyTypes:
+    - Egress
+  egress:
+    # Allow scraping metrics from any namespace
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9090  # Prometheus
+        - protocol: TCP
+          port: 9100  # Node Exporter
+        - protocol: TCP
+          port: 8080  # cAdvisor
+        - protocol: TCP
+          port: 3000  # Grafana
+
+---
+# Allow ingress to Prometheus from Grafana
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-to-prometheus
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: grafana
+      ports:
+        - protocol: TCP
+          port: 9090
+
+---
+# Allow external access to Grafana dashboards
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-ingress
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: grafana
+  policyTypes:
+    - Ingress
+  ingress:
+    - from: []  # Allow from anywhere (use Ingress for auth)
+      ports:
+        - protocol: TCP
+          port: 3000

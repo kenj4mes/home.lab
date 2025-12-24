@@ -1,0 +1,81 @@
+# ==============================================================================
+# 🔄 ArgoCD Project - HomeLab
+# ==============================================================================
+# Defines what resources ArgoCD can manage and where
+#
+# CUSTOMIZE: Replace 'kenj4mes/home.lab' with your fork's URL
+# ==============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: homelab
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: HomeLab Infrastructure Project
+  
+  # Source repositories
+  sourceRepos:
+    - https://github.com/kenj4mes/home.lab.git
+    - https://charts.bitnami.com/bitnami
+    - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+    - https://argoproj.github.io/argo-helm
+  
+  # Destination clusters and namespaces
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+  
+  # Cluster resources allowed
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  
+  # Namespace resources allowed
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  
+  # Roles for RBAC
+  roles:
+    - name: admin
+      description: Full admin access
+      policies:
+        - p, proj:homelab:admin, applications, *, homelab/*, allow
+        - p, proj:homelab:admin, repositories, *, homelab/*, allow
+      groups:
+        - homelab-admins
+    
+    - name: developer
+      description: Read-only access, can sync
+      policies:
+        - p, proj:homelab:developer, applications, get, homelab/*, allow
+        - p, proj:homelab:developer, applications, sync, homelab/*, allow
+      groups:
+        - homelab-developers
+    
+    - name: viewer
+      description: Read-only access
+      policies:
+        - p, proj:homelab:viewer, applications, get, homelab/*, allow
+      groups:
+        - homelab-viewers
+
+---
+# Repository credentials (if private)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: homelab-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: git
+  url: https://github.com/kenj4mes/home.lab.git
+  # For private repos:
+  # username: git
+  # password: ghp_CHANGEME_GITHUB_TOKEN

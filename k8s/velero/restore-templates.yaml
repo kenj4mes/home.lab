@@ -1,0 +1,74 @@
+# ==============================================================================
+# 🔄 Velero Restore Templates
+# ==============================================================================
+# Pre-defined restore configurations for common scenarios
+# ==============================================================================
+
+---
+# Full cluster restore (disaster recovery)
+# kubectl apply -f - after modifying backupName
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: full-cluster-restore
+  namespace: velero
+spec:
+  backupName: daily-full-backup-YYYYMMDDHHMMSS  # Replace with actual backup
+  includedNamespaces:
+    - "*"
+  excludedNamespaces:
+    - velero
+    - kube-system
+  includedResources:
+    - "*"
+  restorePVs: true
+  preserveNodePorts: true
+
+---
+# Production namespace restore
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: production-restore-template
+  namespace: velero
+spec:
+  backupName: production-backup-YYYYMMDDHHMMSS  # Replace with actual
+  includedNamespaces:
+    - production
+    - databases
+  restorePVs: true
+  existingResourcePolicy: update  # Update existing resources
+
+---
+# Single namespace restore (selective)
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: single-namespace-restore
+  namespace: velero
+spec:
+  backupName: daily-full-backup-YYYYMMDDHHMMSS
+  includedNamespaces:
+    - target-namespace  # Change to desired namespace
+  restorePVs: true
+  existingResourcePolicy: none  # Skip existing resources
+
+---
+# Config-only restore (no data)
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: config-only-restore
+  namespace: velero
+spec:
+  backupName: config-backup-YYYYMMDDHHMMSS
+  includedNamespaces:
+    - "*"
+  includedResources:
+    - configmaps
+    - secrets
+    - serviceaccounts
+    - roles
+    - rolebindings
+    - networkpolicies
+  restorePVs: false
