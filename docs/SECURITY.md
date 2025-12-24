@@ -148,7 +148,7 @@ mkdir -p "$BACKUP_DIR"
 docker compose down
 
 # Backup volumes
-tar czf "$BACKUP_DIR/config.tar.gz" /srv/FlashBang/
+tar czf "$BACKUP_DIR/config.tar.gz" /srv/homelab/
 tar czf "$BACKUP_DIR/volumes.tar.gz" /var/lib/docker/volumes/
 
 # Restart services
@@ -244,3 +244,6 @@ sudo dpkg-reconfigure unattended-upgrades
 # Run as non-root user
 dockerd-rootless-setuptool.sh install
 ```
+
+
+

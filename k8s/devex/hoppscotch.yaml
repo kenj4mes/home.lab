@@ -1,0 +1,305 @@
+# ==============================================================================
+# 🔬 Hoppscotch - Open Source API Development Platform (Postman Alternative)
+# ==============================================================================
+# Hoppscotch is a lightweight, fast API development ecosystem.
+# Self-hosted alternative to Postman with team collaboration.
+#
+# FEATURES:
+#   - REST, GraphQL, WebSocket, SSE, MQTT testing
+#   - Collections & environments
+#   - Team workspaces
+#   - Request history
+#   - No cloud sync (privacy-first)
+#
+# PREREQUISITES:
+#   - PostgreSQL database
+#
+# ACCESS:
+#   http://hoppscotch.homelab.local
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hoppscotch
+  labels:
+    app.kubernetes.io/name: hoppscotch
+    app.kubernetes.io/component: api-testing
+---
+# PostgreSQL for Hoppscotch
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hoppscotch-postgres
+  namespace: hoppscotch
+spec:
+  serviceName: hoppscotch-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hoppscotch-postgres
+  template:
+    metadata:
+      labels:
+        app: hoppscotch-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: hoppscotch
+            - name: POSTGRES_USER
+              value: hoppscotch
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hoppscotch-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hoppscotch-postgres
+  namespace: hoppscotch
+spec:
+  selector:
+    app: hoppscotch-postgres
+  ports:
+    - port: 5432
+  clusterIP: None
+---
+# Hoppscotch Backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hoppscotch-backend
+  namespace: hoppscotch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hoppscotch-backend
+  template:
+    metadata:
+      labels:
+        app: hoppscotch-backend
+    spec:
+      containers:
+        - name: backend
+          image: hoppscotch/hoppscotch-backend:latest
+          ports:
+            - containerPort: 3170
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hoppscotch-secrets
+                  key: database-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hoppscotch-secrets
+                  key: jwt-secret
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hoppscotch-secrets
+                  key: session-secret
+            - name: REFRESH_TOKEN_VALIDITY
+              value: "604800000"  # 7 days in ms
+            - name: ACCESS_TOKEN_VALIDITY
+              value: "86400000"   # 1 day in ms
+            - name: REDIRECT_URL
+              value: "https://hoppscotch.homelab.local"
+            - name: WHITELISTED_ORIGINS
+              value: "https://hoppscotch.homelab.local,https://admin.hoppscotch.homelab.local"
+            - name: VITE_ALLOWED_AUTH_PROVIDERS
+              value: "EMAIL"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hoppscotch-backend
+  namespace: hoppscotch
+spec:
+  selector:
+    app: hoppscotch-backend
+  ports:
+    - port: 3170
+---
+# Hoppscotch Frontend (Main App)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hoppscotch-app
+  namespace: hoppscotch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hoppscotch-app
+  template:
+    metadata:
+      labels:
+        app: hoppscotch-app
+    spec:
+      containers:
+        - name: app
+          image: hoppscotch/hoppscotch-frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: VITE_BACKEND_GQL_URL
+              value: "https://hoppscotch.homelab.local/backend/graphql"
+            - name: VITE_BACKEND_WS_URL
+              value: "wss://hoppscotch.homelab.local/backend/graphql"
+            - name: VITE_BACKEND_API_URL
+              value: "https://hoppscotch.homelab.local/backend/v1"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "256Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hoppscotch-app
+  namespace: hoppscotch
+spec:
+  selector:
+    app: hoppscotch-app
+  ports:
+    - port: 3000
+---
+# Hoppscotch Admin Frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hoppscotch-admin
+  namespace: hoppscotch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hoppscotch-admin
+  template:
+    metadata:
+      labels:
+        app: hoppscotch-admin
+    spec:
+      containers:
+        - name: admin
+          image: hoppscotch/hoppscotch-admin:latest
+          ports:
+            - containerPort: 3100
+          env:
+            - name: VITE_BACKEND_GQL_URL
+              value: "https://hoppscotch.homelab.local/backend/graphql"
+            - name: VITE_BACKEND_API_URL
+              value: "https://hoppscotch.homelab.local/backend/v1"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "256Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hoppscotch-admin
+  namespace: hoppscotch
+spec:
+  selector:
+    app: hoppscotch-admin
+  ports:
+    - port: 3100
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hoppscotch
+  namespace: hoppscotch
+  annotations:
+    cert-manager.io/cluster-issuer: "homelab-ca-issuer"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - hoppscotch.homelab.local
+        - admin.hoppscotch.homelab.local
+      secretName: hoppscotch-tls
+  rules:
+    - host: hoppscotch.homelab.local
+      http:
+        paths:
+          - path: /backend
+            pathType: Prefix
+            backend:
+              service:
+                name: hoppscotch-backend
+                port:
+                  number: 3170
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hoppscotch-app
+                port:
+                  number: 3000
+    - host: admin.hoppscotch.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hoppscotch-admin
+                port:
+                  number: 3100
+---
+# Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hoppscotch-secrets
+  namespace: hoppscotch
+type: Opaque
+stringData:
+  postgres-password: "CHANGEME_HOPPSCOTCH_DB_PASSWORD"
+  database-url: "postgres://hoppscotch:CHANGEME_HOPPSCOTCH_DB_PASSWORD@hoppscotch-postgres:5432/hoppscotch"
+  jwt-secret: "CHANGEME_JWT_SECRET_32_CHARS_MINIMUM"
+  session-secret: "CHANGEME_SESSION_SECRET_32_CHARS"

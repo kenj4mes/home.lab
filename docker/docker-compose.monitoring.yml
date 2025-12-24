@@ -44,7 +44,7 @@ services:
       - '--web.enable-lifecycle'
     volumes:
       - prometheus-data:/prometheus
-      - ${CONFIG_PATH:-/srv/FlashBang}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ${CONFIG_PATH:-/srv/homelab}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "9090:9090"
     networks:
@@ -71,7 +71,7 @@ services:
       - GF_SERVER_ROOT_URL=http://localhost:3100
     volumes:
       - grafana-data:/var/lib/grafana
-      - ${CONFIG_PATH:-/srv/FlashBang}/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ${CONFIG_PATH:-/srv/homelab}/grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
       - "3100:3000"
     networks:
@@ -135,7 +135,7 @@ services:
     ports:
       - "3101:3100"
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/loki:/loki
+      - ${CONFIG_PATH:-/srv/homelab}/loki:/loki
     networks:
       - monitoring
     restart: unless-stopped
@@ -149,7 +149,7 @@ services:
     volumes:
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ${CONFIG_PATH:-/srv/FlashBang}/promtail/config.yml:/etc/promtail/config.yml:ro
+      - ${CONFIG_PATH:-/srv/homelab}/promtail/config.yml:/etc/promtail/config.yml:ro
     networks:
       - monitoring
     depends_on:

@@ -190,7 +190,7 @@ services:
     environment:
       POSTGRES_DB: blockscout
       POSTGRES_USER: blockscout
-      POSTGRES_PASSWORD: blockscout
+      POSTGRES_PASSWORD: ${BLOCKSCOUT_DEV_DB_PASSWORD:-blockscout_dev}
     volumes:
       - blockscout-dev-data:/var/lib/postgresql/data
     networks:

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Download Creative AI Models for Offline Operation
 .DESCRIPTION
@@ -90,11 +90,11 @@ function Write-Step {
         default { "Cyan" }
     }
     $prefix = switch ($Status) {
-        "SUCCESS" { "  ✓ " }
-        "WARN" { "  ⚠ " }
-        "ERROR" { "  ✗ " }
-        "PHASE" { "`n  ▶ " }
-        default { "  ℹ " }
+        "SUCCESS" { "  [OK] " }
+        "WARN" { "  [!] " }
+        "ERROR" { "  [X] " }
+        "PHASE" { "`n  >> " }
+        default { "  [i] " }
     }
     Write-Host "$prefix$Message" -ForegroundColor $color
 }

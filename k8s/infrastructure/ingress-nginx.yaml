@@ -1,0 +1,124 @@
+# ==============================================================================
+# 🌐 Ingress-NGINX Controller
+# ==============================================================================
+# Production-grade Ingress controller for Kubernetes using NGINX.
+#
+# INSTALLATION (via Helm - recommended):
+#   helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+#   helm repo update
+#   helm install ingress-nginx ingress-nginx/ingress-nginx \
+#     --namespace ingress-nginx --create-namespace \
+#     --set controller.metrics.enabled=true \
+#     --set controller.metrics.serviceMonitor.enabled=true
+#
+# VERIFY:
+#   kubectl get pods -n ingress-nginx
+#   kubectl get svc -n ingress-nginx
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+---
+# Default Backend (custom 404 page)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-error-pages
+  namespace: ingress-nginx
+data:
+  404.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>404 - Not Found | HomeLab</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+               display: flex; justify-content: center; align-items: center; height: 100vh; 
+               margin: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; }
+        .container { text-align: center; }
+        h1 { font-size: 6rem; margin: 0; color: #e94560; }
+        p { font-size: 1.5rem; color: #a0a0a0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>404</h1>
+        <p>The page you're looking for doesn't exist.</p>
+        <p><a href="/" style="color: #0f3460;">Return Home</a></p>
+      </div>
+    </body>
+    </html>
+---
+# NGINX ConfigMap - Custom Settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+data:
+  # Security headers
+  add-headers: "ingress-nginx/custom-headers"
+  # SSL settings
+  ssl-protocols: "TLSv1.2 TLSv1.3"
+  ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+  ssl-prefer-server-ciphers: "true"
+  # Performance
+  use-gzip: "true"
+  gzip-types: "application/atom+xml application/javascript application/json application/rss+xml application/vnd.ms-fontobject application/x-font-opentype application/x-font-truetype application/x-font-ttf application/x-javascript application/xhtml+xml application/xml font/eot font/opentype font/otf font/truetype image/svg+xml image/vnd.microsoft.icon image/x-icon image/x-win-bitmap text/css text/javascript text/plain text/xml"
+  # Proxy settings
+  proxy-body-size: "100m"
+  proxy-buffer-size: "16k"
+  proxy-read-timeout: "120"
+  proxy-send-timeout: "120"
+  # Rate limiting
+  limit-req-status-code: "429"
+  limit-conn-status-code: "429"
+  # Logging
+  log-format-upstream: '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length $request_time [$proxy_upstream_name] [$proxy_alternative_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status $req_id'
+---
+# Custom Security Headers
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: ingress-nginx
+data:
+  X-Frame-Options: "SAMEORIGIN"
+  X-Content-Type-Options: "nosniff"
+  X-XSS-Protection: "1; mode=block"
+  Referrer-Policy: "strict-origin-when-cross-origin"
+  Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+---
+# Example Ingress Resource
+# Uncomment and customize for your services
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: homelab-ingress
+#   namespace: default
+#   annotations:
+#     kubernetes.io/ingress.class: nginx
+#     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+#     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+#     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+# spec:
+#   tls:
+#     - hosts:
+#         - app.homelab.local
+#       secretName: app-tls
+#   rules:
+#     - host: app.homelab.local
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: my-app
+#                 port:
+#                   number: 80

@@ -3,7 +3,7 @@
 # ==============================================================================
 # Defines what resources ArgoCD can manage and where
 #
-# CUSTOMIZE: Replace 'kenj4mes/home.lab' with your fork's URL
+# CUSTOMIZE: Replace '<your-github-username>' with your GitHub username
 # ==============================================================================
 
 apiVersion: argoproj.io/v1alpha1
@@ -17,8 +17,9 @@ spec:
   description: HomeLab Infrastructure Project
   
   # Source repositories
+  # CUSTOMIZE: Replace <your-github-username> with your GitHub username
   sourceRepos:
-    - https://github.com/kenj4mes/home.lab.git
+    - https://github.com/<your-github-username>/home.lab.git
     - https://charts.bitnami.com/bitnami
     - https://prometheus-community.github.io/helm-charts
     - https://grafana.github.io/helm-charts
@@ -75,7 +76,8 @@ metadata:
     argocd.argoproj.io/secret-type: repository
 stringData:
   type: git
-  url: https://github.com/kenj4mes/home.lab.git
+  # CUSTOMIZE: Replace <your-github-username> with your GitHub username
+  url: https://github.com/<your-github-username>/home.lab.git
   # For private repos:
   # username: git
   # password: ghp_CHANGEME_GITHUB_TOKEN

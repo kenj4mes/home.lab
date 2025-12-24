@@ -1,0 +1,43 @@
+# ==============================================================================
+# 📝 Blog Post Workflow
+# ==============================================================================
+# Automatically updates README with latest blog posts from RSS feed
+#
+# DEPENDENCIES:
+#   - None (uses default GITHUB_TOKEN)
+#
+# Documentation: https://github.com/gautamkrishnar/blog-post-workflow
+#
+# README SETUP:
+#   Add these comment markers to your README.md:
+#   <!-- BLOG-POST-LIST:START -->
+#   <!-- BLOG-POST-LIST:END -->
+# ==============================================================================
+
+name: Latest Blog Posts
+
+on:
+  # Schedule daily
+  schedule:
+    - cron: "0 2 * * *"
+  # Manual trigger
+  workflow_dispatch:
+
+jobs:
+  update-readme-with-blog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Pull in Blog Posts
+        uses: gautamkrishnar/blog-post-workflow@master
+        with:
+          # CUSTOMIZE: Add your RSS feed URLs
+          feed_list: "https://dev.to/feed/YOUR_USERNAME,https://medium.com/feed/@YOUR_USERNAME"
+          max_post_count: 5
+          template: "$newline- [$title]($url) - $date$newline"
+          date_format: "mmm dd, yyyy"
+          commit_message: "📝 Updated blog posts"
+          committer_username: "github-actions[bot]"
+          committer_email: "github-actions[bot]@users.noreply.github.com"

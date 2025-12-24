@@ -49,11 +49,11 @@ services:
       - TZ=${TZ:-America/New_York}
       - JELLYFIN_PublishedServerUrl=${JELLYFIN_URL:-http://localhost:8096}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/jellyfin/config:/config
-      - ${MEDIA_PATH:-/srv/Tumadre}/Series:/data/tvshows
-      - ${MEDIA_PATH:-/srv/Tumadre}/Movies:/data/movies
-      - ${MEDIA_PATH:-/srv/Tumadre}/Music:/data/music
-      - ${MEDIA_PATH:-/srv/Tumadre}/Photos:/data/photos
+      - ${CONFIG_PATH:-/srv/homelab}/jellyfin/config:/config
+      - ${MEDIA_PATH:-/srv/media}/Series:/data/tvshows
+      - ${MEDIA_PATH:-/srv/media}/Movies:/data/movies
+      - ${MEDIA_PATH:-/srv/media}/Music:/data/music
+      - ${MEDIA_PATH:-/srv/media}/Photos:/data/photos
     ports:
       - "8096:8096"
       - "8920:8920"
@@ -91,8 +91,8 @@ services:
       - TZ=${TZ:-America/New_York}
       - WEBUI_PORT=8080
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/qbittorrent/config:/config
-      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+      - ${CONFIG_PATH:-/srv/homelab}/qbittorrent/config:/config
+      - ${MEDIA_PATH:-/srv/media}/Downloads:/downloads
     ports:
       - "8080:8080"
       - "6881:6881"
@@ -133,7 +133,7 @@ services:
           tail -f /dev/null
         fi
     volumes:
-      - ${MEDIA_PATH:-/srv/Tumadre}/ZIM:/zim:ro
+      - ${MEDIA_PATH:-/srv/media}/ZIM:/zim:ro
     ports:
       - "8081:8081"
     networks:
@@ -190,7 +190,7 @@ services:
       - DB_PASS=${BOOKSTACK_DB_PASSWORD:-CHANGEME_DB}
       - DB_DATABASE=bookstack
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/bookstack/config:/config
+      - ${CONFIG_PATH:-/srv/homelab}/bookstack/config:/config
     ports:
       - "8082:80"
     networks:
@@ -240,7 +240,7 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/ollama:/root/.ollama
+      - ${CONFIG_PATH:-/srv/homelab}/ollama:/root/.ollama
     ports:
       - "11434:11434"
     networks:

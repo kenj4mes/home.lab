@@ -2,11 +2,14 @@
 # Stores ZIM files in home.lab/data/zim/ for portability
 
 param(
-    [string]$ZimPath = "C:\home.lab\data\zim",
+    [string]$ZimPath = "$PSScriptRoot\..\data\zim",
     [switch]$WikipediaOnly,
     [switch]$DevDocs,
     [switch]$All
 )
+
+# Resolve to absolute path
+$ZimPath = [System.IO.Path]::GetFullPath($ZimPath)
 
 Write-Host @"
 ========================================

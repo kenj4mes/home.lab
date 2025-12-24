@@ -1,0 +1,162 @@
+---
+# ==============================================================================
+# 🐳 Docker Role - Install and Configure Docker CE
+# ==============================================================================
+
+# Remove old versions
+- name: Remove old Docker packages (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - docker
+      - docker-engine
+      - docker.io
+      - containerd
+      - runc
+    state: absent
+  when: ansible_os_family == "Debian"
+
+- name: Remove old Docker packages (RHEL/Fedora)
+  ansible.builtin.dnf:
+    name:
+      - docker
+      - docker-client
+      - docker-client-latest
+      - docker-common
+      - docker-latest
+      - docker-latest-logrotate
+      - docker-logrotate
+      - docker-engine
+    state: absent
+  when: ansible_os_family == "RedHat"
+
+# Install Docker (Debian/Ubuntu)
+- name: Install Docker prerequisites (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Add Docker GPG key (Debian/Ubuntu)
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+  when: ansible_os_family == "Debian"
+
+- name: Add Docker repository (Debian/Ubuntu)
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker
+  when: ansible_os_family == "Debian"
+
+- name: Install Docker (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+# Install Docker (RHEL/Fedora)
+- name: Add Docker repository (RHEL/Fedora)
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/{{ 'fedora' if ansible_distribution == 'Fedora' else 'rhel' }}/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+    mode: '0644'
+  when: ansible_os_family == "RedHat"
+
+- name: Install Docker (RHEL/Fedora)
+  ansible.builtin.dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+  when: ansible_os_family == "RedHat"
+
+# Configure Docker
+- name: Create Docker config directory
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure Docker daemon
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart docker
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Add users to docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users | default(['ansible']) }}"
+
+# Configure containerd (for K8s compatibility)
+- name: Create containerd config directory
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Generate default containerd config
+  ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+
+- name: Enable SystemdCgroup in containerd
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+  notify: Restart containerd
+
+- name: Enable and start containerd
+  ansible.builtin.systemd:
+    name: containerd
+    enabled: true
+    state: started
+
+# Firewall rules for Docker
+- name: Configure firewall for Docker (firewalld)
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+  loop:
+    - 2375/tcp   # Docker API (if enabled)
+    - 2376/tcp   # Docker API TLS
+    - 2377/tcp   # Swarm management
+    - 7946/tcp   # Swarm node communication
+    - 7946/udp   # Swarm node communication
+    - 4789/udp   # Overlay network
+  when: ansible_os_family == "RedHat"
+  notify: Reload firewalld

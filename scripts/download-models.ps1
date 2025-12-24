@@ -2,11 +2,13 @@
 # Stores models in home.lab/data/ollama/ for portability
 
 param(
-    [string]$ModelPath = "C:\home.lab\data\ollama",
+    [string]$ModelPath = "$PSScriptRoot\..\data\ollama",
     [switch]$MinimalSet,
     [switch]$FullSet
 )
 
+# Resolve to absolute path
+$ModelPath = [System.IO.Path]::GetFullPath($ModelPath)
 $env:OLLAMA_MODELS = $ModelPath
 
 # Ensure Ollama is installed

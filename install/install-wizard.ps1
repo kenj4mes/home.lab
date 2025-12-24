@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     HomeLab Install Wizard - Interactive Setup with Component Selection
 .DESCRIPTION
@@ -30,7 +30,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "2.0.0"
+$ScriptVersion = "2.3.0"
 $SubfolderName = "HomeLab"
 
 # ==============================================================================
@@ -113,6 +113,14 @@ $script:Config = @{
             ComposeFiles = @("docker-compose.creative.yml")
             Warning = "⚠️ Requires NVIDIA GPU with 8GB+ VRAM (24GB for video)"
         }
+        "HuggingFace" = @{
+            Name = "Hugging Face Ecosystem"
+            Description = "transformers, diffusers, accelerate, huggingface-cli for model downloads"
+            Required = $false
+            DiskSpaceGB = 2
+            ComposeFiles = @()
+            Scripts = @("scripts/install-huggingface.ps1")
+        }
         "PQTLS" = @{
             Name = "Post-Quantum TLS Security"
             Description = "PQ-TLS reverse proxy (Kyber768) + HashiCorp Vault"
@@ -135,6 +143,37 @@ $script:Config = @{
             DiskSpaceGB = 100
             ComposeFiles = @("docker-compose.superchain.yml")
             Warning = "⚠️ Requires L1 RPC (Alchemy/Infura) - ~500GB per synced chain"
+        }
+        "Experimental" = @{
+            Name = "Experimental Stack (Cybernetic Pillars)"
+            Description = "LangFlow AI, Rotki DeFi, Scaphandre energy, n8n workflows, Dozzle logs"
+            Required = $false
+            DiskSpaceGB = 5
+            ComposeFiles = @("docker-compose.experimental.yml")
+            Warning = "⚠️ Bleeding-edge tools for advanced users"
+        }
+        "Social" = @{
+            Name = "Social Media Stack"
+            Description = "Farcaster hub, Nitter, Invidious, Teddit, n8n automation"
+            Required = $false
+            DiskSpaceGB = 10
+            ComposeFiles = @("docker-compose.social.yml")
+            Warning = "⚠️ Some APIs require keys (Twitter, YouTube)"
+        }
+        "Identity" = @{
+            Name = "Identity & SSO"
+            Description = "Keycloak SSO, OAuth2 Proxy for centralized authentication"
+            Required = $false
+            DiskSpaceGB = 2
+            ComposeFiles = @("docker-compose.identity.yml")
+        }
+        "GitHubProfile" = @{
+            Name = "GitHub Profile Analytics"
+            Description = "S+ rank stats, trophies, snake animation, WakaTime, metrics workflows"
+            Required = $false
+            DiskSpaceGB = 0
+            ComposeFiles = @()
+            Scripts = @("scripts/setup-github-profile.ps1")
         }
     }
 }
@@ -171,11 +210,11 @@ function Write-Step {
         default { "Cyan" }
     }
     $prefix = switch ($Status) {
-        "SUCCESS" { "  ✓ " }
-        "WARN" { "  ⚠ " }
-        "ERROR" { "  ✗ " }
-        "PHASE" { "`n  ▶ " }
-        default { "  ℹ " }
+        "SUCCESS" { "  [OK] " }
+        "WARN" { "  [!] " }
+        "ERROR" { "  [X] " }
+        "PHASE" { "`n  >> " }
+        default { "  [i] " }
     }
     Write-Host "$prefix$Message" -ForegroundColor $color
 }
@@ -329,6 +368,16 @@ function Test-Prerequisites {
         return $false
     }
     Write-Step "Running as Administrator" -Status SUCCESS
+    
+    # Check Git LFS
+    $gitLfs = Get-Command git-lfs -ErrorAction SilentlyContinue
+    if ($gitLfs) {
+        Write-Step "Git LFS is installed" -Status SUCCESS
+    }
+    else {
+        Write-Step "Git LFS not found - required for data files" -Status WARN
+        Write-Host "    Install with: winget install Git.Git.LFS" -ForegroundColor Yellow
+    }
     
     # Check Docker
     if (-not $SkipDocker) {
@@ -678,6 +727,10 @@ function Start-Installation {
             "Matrix" = "docker-compose.matrix.yml"
             "Creative" = "docker-compose.creative.yml"
             "PQTLS" = "docker-compose.pqtls.yml"
+            "Social" = "docker-compose.social.yml"
+            "Identity" = "docker-compose.identity.yml"
+            "Experimental" = "docker-compose.experimental.yml"
+            "Superchain" = "docker-compose.superchain.yml"
         }
         
         foreach ($stack in $stackMap.GetEnumerator()) {

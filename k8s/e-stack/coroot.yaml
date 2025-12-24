@@ -1,0 +1,374 @@
+# ==============================================================================
+# 🔍 Coroot - eBPF Application Observability
+# ==============================================================================
+# Zero-config service mapping using eBPF
+# Automatically discovers services, latency, errors without instrumentation
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coroot
+  labels:
+    app.kubernetes.io/name: coroot
+    app.kubernetes.io/part-of: observability
+
+---
+# ==============================================================================
+# Coroot Server - Central Dashboard
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: coroot-data-pvc
+  namespace: coroot
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coroot
+  namespace: coroot
+  labels:
+    app: coroot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coroot
+  template:
+    metadata:
+      labels:
+        app: coroot
+    spec:
+      containers:
+        - name: coroot
+          image: ghcr.io/coroot/coroot:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          
+          args:
+            - "--listen=:8080"
+            - "--data-dir=/data"
+            - "--cache-ttl=720h"
+            - "--pg-connection-string="
+          
+          env:
+            - name: BOOTSTRAP_PROMETHEUS_URL
+              value: "http://prometheus.monitoring.svc.cluster.local:9090"
+            - name: BOOTSTRAP_REFRESH_INTERVAL
+              value: "15s"
+          
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: coroot-data-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coroot
+  namespace: coroot
+spec:
+  selector:
+    app: coroot
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+
+---
+# ==============================================================================
+# Coroot Node Agent - eBPF Data Collection
+# ==============================================================================
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: coroot-node-agent
+  namespace: coroot
+  labels:
+    app: coroot-node-agent
+spec:
+  selector:
+    matchLabels:
+      app: coroot-node-agent
+  template:
+    metadata:
+      labels:
+        app: coroot-node-agent
+    spec:
+      # Run on host network for full visibility
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      
+      # Tolerate all taints
+      tolerations:
+        - operator: Exists
+      
+      serviceAccountName: coroot-node-agent
+      
+      containers:
+        - name: coroot-node-agent
+          image: ghcr.io/coroot/coroot-node-agent:latest
+          
+          args:
+            - "--listen=0.0.0.0:11354"
+            - "--cgroupfs-root=/host/sys/fs/cgroup"
+            - "--wal-dir=/data"
+          
+          ports:
+            - containerPort: 11354
+              name: metrics
+              hostPort: 11354
+          
+          securityContext:
+            privileged: true
+          
+          volumeMounts:
+            # System access for eBPF
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: host-sys-fs-cgroup
+              mountPath: /host/sys/fs/cgroup
+              readOnly: true
+            - name: debugfs
+              mountPath: /sys/kernel/debug
+            # Docker/containerd socket
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: containerd-sock
+              mountPath: /run/containerd/containerd.sock
+            # Data directory
+            - name: data
+              mountPath: /data
+          
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: host-sys-fs-cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: debugfs
+          hostPath:
+            path: /sys/kernel/debug
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: containerd-sock
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+        - name: data
+          emptyDir: {}
+
+---
+# ==============================================================================
+# Service Account and RBAC
+# ==============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coroot-node-agent
+  namespace: coroot
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: coroot-node-agent
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy", "pods", "services", "endpoints", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: coroot-node-agent
+subjects:
+  - kind: ServiceAccount
+    name: coroot-node-agent
+    namespace: coroot
+roleRef:
+  kind: ClusterRole
+  name: coroot-node-agent
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ==============================================================================
+# Coroot Cluster Agent - Kubernetes Metadata
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coroot-cluster-agent
+  namespace: coroot
+  labels:
+    app: coroot-cluster-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coroot-cluster-agent
+  template:
+    metadata:
+      labels:
+        app: coroot-cluster-agent
+    spec:
+      serviceAccountName: coroot-cluster-agent
+      containers:
+        - name: coroot-cluster-agent
+          image: ghcr.io/coroot/coroot-cluster-agent:latest
+          
+          env:
+            - name: COROOT_URL
+              value: "http://coroot.coroot.svc.cluster.local:8080"
+            - name: API_KEY
+              value: ""  # Optional: set if authentication enabled
+          
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coroot-cluster-agent
+  namespace: coroot
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: coroot-cluster-agent
+rules:
+  - apiGroups: [""]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: coroot-cluster-agent
+subjects:
+  - kind: ServiceAccount
+    name: coroot-cluster-agent
+    namespace: coroot
+roleRef:
+  kind: ClusterRole
+  name: coroot-cluster-agent
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ==============================================================================
+# Ingress
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: coroot-ingress
+  namespace: coroot
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - coroot.homelab.local
+      secretName: coroot-tls
+  rules:
+    - host: coroot.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: coroot
+                port:
+                  number: 8080
+
+---
+# ==============================================================================
+# ServiceMonitor for Prometheus (optional)
+# ==============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: coroot-node-agent
+  namespace: coroot
+  labels:
+    app: coroot-node-agent
+spec:
+  selector:
+    matchLabels:
+      app: coroot-node-agent
+  endpoints:
+    - port: metrics
+      interval: 15s

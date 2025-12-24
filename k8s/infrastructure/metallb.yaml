@@ -1,0 +1,106 @@
+# ==============================================================================
+# ⚖️ MetalLB - Bare Metal Load Balancer for Kubernetes
+# ==============================================================================
+# MetalLB provides a network load-balancer implementation for Kubernetes
+# clusters that don't run on a cloud provider (bare metal, on-prem, homelab).
+#
+# INSTALLATION (via Helm - recommended):
+#   helm repo add metallb https://metallb.github.io/metallb
+#   helm repo update
+#   helm install metallb metallb/metallb \
+#     --namespace metallb-system --create-namespace
+#
+# VERIFY:
+#   kubectl get pods -n metallb-system
+#   kubectl get ipaddresspools -n metallb-system
+#
+# MODES:
+#   - Layer 2 (ARP/NDP): Simple, works anywhere, single node handles traffic
+#   - BGP: Advanced, requires BGP-capable router, true load balancing
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: metallb-system
+  labels:
+    app.kubernetes.io/name: metallb
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+# IP Address Pool - Layer 2 Mode
+# CUSTOMIZE: Adjust IP range for your network
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: homelab-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    # CUSTOMIZE: Replace with your available IP range
+    # This should be IPs on your LAN that are NOT used by DHCP
+    - 192.168.1.200-192.168.1.250
+  autoAssign: true
+  avoidBuggyIPs: true
+---
+# L2 Advertisement - Announce IPs via ARP
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: homelab-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - homelab-pool
+  # Optional: Limit to specific interfaces
+  # interfaces:
+  #   - eth0
+---
+# Optional: Secondary pool for specific services
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: infrastructure-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    # CUSTOMIZE: Dedicated IPs for infrastructure services
+    - 192.168.1.180-192.168.1.189
+  autoAssign: false  # Manual assignment only
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: infrastructure-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - infrastructure-pool
+---
+# BGP Configuration (Advanced - requires BGP-capable router)
+# Uncomment if using BGP mode
+# ---
+# apiVersion: metallb.io/v1beta2
+# kind: BGPPeer
+# metadata:
+#   name: router
+#   namespace: metallb-system
+# spec:
+#   myASN: 64500
+#   peerASN: 64501
+#   peerAddress: 192.168.1.1  # Your router IP
+#   password: "CHANGEME_BGP_PASSWORD"
+# ---
+# apiVersion: metallb.io/v1beta1
+# kind: BGPAdvertisement
+# metadata:
+#   name: homelab-bgp
+#   namespace: metallb-system
+# spec:
+#   ipAddressPools:
+#     - homelab-pool
+#   peers:
+#     - router
+#   communities:
+#     - 64500:100

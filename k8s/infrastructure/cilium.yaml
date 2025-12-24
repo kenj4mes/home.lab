@@ -1,0 +1,143 @@
+# ==============================================================================
+# 🐝 Cilium - eBPF-based Networking, Security, and Observability
+# ==============================================================================
+# Cilium is an advanced CNI plugin that uses eBPF for high-performance
+# networking, transparent encryption, and L7 policy enforcement.
+#
+# INSTALLATION (via Helm - recommended):
+#   helm repo add cilium https://helm.cilium.io/
+#   helm repo update
+#   helm install cilium cilium/cilium \
+#     --namespace kube-system \
+#     --set kubeProxyReplacement=true \
+#     --set hubble.enabled=true \
+#     --set hubble.relay.enabled=true \
+#     --set hubble.ui.enabled=true \
+#     --set prometheus.enabled=true \
+#     --set operator.prometheus.enabled=true
+#
+# VERIFY:
+#   cilium status
+#   kubectl get pods -n kube-system -l k8s-app=cilium
+#
+# HUBBLE UI (Observability):
+#   cilium hubble ui
+#   # or
+#   kubectl port-forward -n kube-system svc/hubble-ui 12000:80
+# ==============================================================================
+---
+# Cilium Network Policy - Default Deny All (Zero Trust Baseline)
+# More powerful than standard NetworkPolicy with L7 support
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: default
+spec:
+  endpointSelector: {}
+  ingress:
+    - {}
+  egress:
+    - {}
+---
+# Cilium Network Policy - Allow DNS
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: default
+spec:
+  endpointSelector: {}
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+---
+# Cilium Network Policy - Allow Monitoring (Prometheus scraping)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: monitoring
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  egress:
+    - toEndpoints:
+        - matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: Exists
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+            - port: "9100"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+            - port: "8443"
+              protocol: TCP
+---
+# Cilium Cluster-Wide Network Policy
+# Applies across all namespaces
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-health-checks
+spec:
+  endpointSelector: {}
+  ingress:
+    # Allow kubelet health checks
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "10250"
+              protocol: TCP
+---
+# Cilium L7 Policy Example - HTTP path filtering
+# Uncomment to enable L7 filtering
+# apiVersion: cilium.io/v2
+# kind: CiliumNetworkPolicy
+# metadata:
+#   name: api-l7-policy
+#   namespace: default
+# spec:
+#   endpointSelector:
+#     matchLabels:
+#       app: api-server
+#   ingress:
+#     - fromEndpoints:
+#         - matchLabels:
+#             app: frontend
+#       toPorts:
+#         - ports:
+#             - port: "8080"
+#               protocol: TCP
+#           rules:
+#             http:
+#               - method: GET
+#                 path: "/api/v1/.*"
+#               - method: POST
+#                 path: "/api/v1/users"
+---
+# Hubble Configuration (if not using Helm values)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-config
+  namespace: kube-system
+data:
+  # Enable Hubble for network flow visibility
+  enable-hubble: "true"
+  hubble-listen-address: ":4244"
+  hubble-metrics-server: ":9965"
+  hubble-metrics: "dns,drop,tcp,flow,icmp,http"

@@ -7,7 +7,8 @@ Detailed installation instructions for all platforms.
 ### Linux (One-liner)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/kenj4mes/home.lab/main/bootstrap.sh | bash
+# CUSTOMIZE: Replace <your-github-username> with your GitHub username
+curl -sSL https://raw.githubusercontent.com/<your-github-username>/home.lab/main/bootstrap.sh | bash
 ```
 
 ### Windows (PowerShell)
@@ -19,12 +20,21 @@ curl -sSL https://raw.githubusercontent.com/kenj4mes/home.lab/main/bootstrap.sh 
 
 ## Manual Installation
 
-### Step 1: Clone Repository
+### Step 1: Clone Repository (with Git LFS)
 
 ```bash
-git clone https://github.com/kenj4mes/home.lab.git
+# Install Git LFS first
+git lfs install
+
+# CUSTOMIZE: Replace <your-github-username> with your GitHub username
+# Includes ~29GB of data via LFS (ZIMs, models, Superchain)
+git clone https://github.com/<your-github-username>/home.lab.git
 cd home.lab
 ```
+
+!!! info "About Git LFS"
+    Large data files are tracked with Git LFS and download automatically.
+    This includes offline encyclopedias, AI models, and blockchain repos.
 
 ### Step 2: Configure Environment
 
@@ -39,14 +49,16 @@ nano .env
 !!! danger "Security"
     Replace ALL `CHANGEME_*` values with secure passwords before starting!
 
-### Step 3: Download Data
+### Step 3: Download Optional Data
 
 ```bash
-# Download Ollama models (~26GB)
+# ZIM files and SDXL models already included via Git LFS!
+
+# Optional: Download Ollama LLM models (~26GB)
 ./scripts/download-models.sh
 
-# Download Kiwix ZIMs (~22GB)
-./scripts/download-all.sh
+# Optional: Creative AI models (Bark, MusicGen, etc.)
+./scripts/download-all.sh --creative
 ```
 
 ### Step 4: Start Services

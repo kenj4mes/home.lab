@@ -1,7 +1,8 @@
 # ZIM Download Progress Monitor with Milestone Alerts
 # Checks progress and alerts at 50%, 75%, 100%
 
-$zimDir = 'C:\home.lab\data\zim'
+$zimDir = Join-Path $PSScriptRoot '..\data\zim'
+$zimDir = [System.IO.Path]::GetFullPath($zimDir)
 $totalTargetMB = 22054  # Total expected size in MB
 $lastMilestone = 0
 

@@ -147,7 +147,9 @@ Write-Host "  Ollama Models:  $($results.ollama)"
 Write-Host "  Creative AI:    $($results.models)"
 Write-Host "  Kiwix ZIMs:     $($results.zim)"
 Write-Host ''
-Write-Host '  Data Directory: C:\home.lab\data\' -ForegroundColor Gray
+$dataDir = Join-Path $ScriptRoot '..\data'
+$dataDir = [System.IO.Path]::GetFullPath($dataDir)
+Write-Host "  Data Directory: $dataDir" -ForegroundColor Gray
 Write-Host ''
 Write-Host '  HomeLab is now ready for offline operation!' -ForegroundColor Green
 Write-Host ''

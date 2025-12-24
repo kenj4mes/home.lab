@@ -1,7 +1,7 @@
 # Kiwix Library Configuration
 # ==============================================================================
 # This file lists ZIM files to serve via Kiwix
-# Place ZIM files in: /srv/Tumadre/ZIM/
+# Place ZIM files in: /srv/homelab/data/ZIM/
 #
 # Download ZIM files from: https://wiki.kiwix.org/wiki/Content_in_all_languages
 # ==============================================================================
@@ -45,7 +45,7 @@
 ## Kiwix Docker Commands
 
 # Serve all ZIM files in directory:
-# docker run -v /srv/Tumadre/ZIM:/data -p 8081:80 ghcr.io/kiwix/kiwix-serve /data/*.zim
+# docker run -v /srv/homelab/data/ZIM:/data -p 8081:80 ghcr.io/kiwix/kiwix-serve /data/*.zim
 
 # Create library file for multiple ZIMs:
 # kiwix-manage library.xml add /zim/wikipedia_en_all.zim

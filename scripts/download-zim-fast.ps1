@@ -3,7 +3,8 @@
 #  aria2c tuned to extract every last bit of bandwidth
 # ═══════════════════════════════════════════════════════════════════════════
 
-$zimDir = 'C:\home.lab\data\zim'
+$zimDir = Join-Path $PSScriptRoot '..\data\zim'
+$zimDir = [System.IO.Path]::GetFullPath($zimDir)
 New-Item -ItemType Directory -Path $zimDir -Force | Out-Null
 
 # Refresh PATH to get aria2c

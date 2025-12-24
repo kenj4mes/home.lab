@@ -50,7 +50,7 @@ resource "proxmox_vm_qemu" "docker_host" {
   disk {
     size    = "100G"
     type    = "virtio"
-    storage = "FlashBang"      # Config/Local Pool
+    storage = "fast-pool"      # Config/Local Pool
     iothread = 1
   }
   
@@ -60,7 +60,7 @@ resource "proxmox_vm_qemu" "docker_host" {
   disk {
     size    = var.media_disk_size
     type    = "virtio"
-    storage = "Tumadre"        # Media Pool
+    storage = "bulk-pool"        # Media Pool
   }
 
   # Cloud-Init Config

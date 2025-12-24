@@ -1,0 +1,50 @@
+# ==============================================================================
+# 🐍 GitHub Contribution Snake
+# ==============================================================================
+# Generates an animated snake eating the contribution graph
+#
+# DEPENDENCIES:
+#   - None (uses default GITHUB_TOKEN)
+#
+# Documentation: https://github.com/Platane/snk
+# ==============================================================================
+
+name: Contribution Snake
+
+on:
+  # Schedule daily updates
+  schedule:
+    - cron: "0 1 * * *"
+  # Manual trigger
+  workflow_dispatch:
+  # On push to main/master
+  push:
+    branches: ["main", "master"]
+
+jobs:
+  generate-snake:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    
+    steps:
+      - name: Generate Snake Animation
+        uses: Platane/snk/svg-only@v3
+        with:
+          github_user_name: ${{ github.repository_owner }}
+          outputs: |
+            dist/github-snake.svg
+            dist/github-snake-dark.svg?palette=github-dark
+            dist/github-snake-ocean.svg?palette=ocean
+            dist/github-snake.gif?color_snake=green&color_dots=#bfd6f6,#8dbdff,#64a1f4,#4b91f1,#3c7dd9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Push Snake to Output Branch
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: output
+          build_dir: dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

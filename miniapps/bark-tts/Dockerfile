@@ -56,7 +56,8 @@ RUN pip3 install --no-cache-dir \
 
 # Copy application code
 COPY app.py .
-COPY voices/ ./voices/ 2>/dev/null || true
+# Note: voices/ directory is optional, created at runtime if not present
+# COPY voices/ ./voices/
 
 # Create models directory
 RUN mkdir -p /app/models

@@ -15,7 +15,8 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-[![CI - Lint & Validate](https://github.com/kenj4mes/home.lab/actions/workflows/lint.yml/badge.svg)](https://github.com/kenj4mes/home.lab/actions/workflows/lint.yml)
+<!-- CUSTOMIZE: Replace with your GitHub username in the badge URLs below -->
+[![CI - Lint & Validate](https://img.shields.io/badge/CI-Lint%20%26%20Validate-blue)](https://github.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -75,9 +76,9 @@ Networking:    Nginx, Pi-hole, TURN/STUN, Matrix federation
 ## ✨ Features
 
 - **🤖 Local AI** - Run Ollama with Open WebUI (ChatGPT-like interface) 100% offline
-- **🎬 Media Server** - Jellyfin for your personal Netflix experience
+- **🎬 Media Server** - Jellyfin for your streaming media
 - **📚 Offline Knowledge** - Kiwix with Wikipedia, Stack Overflow, and more
-- **📝 Documentation** - BookStack personal wiki
+- **📝 Documentation** - BookStack wiki for notes and documentation
 - **🔗 Blockchain** - Optional Base L2 node with explorer and wallet API
 - **📊 Monitoring** - Prometheus + Grafana + Loki stack
 - **🔒 Security** - Secure secrets, health checks, and hardened containers
@@ -90,7 +91,9 @@ Networking:    Nginx, Pi-hole, TURN/STUN, Matrix federation
 - **⛓️ Superchain Ecosystem** - 31 OP-Stack L2 nodes (Base, OP, Unichain, Mode, World, Lisk)
 - **📡 SDR & Radio Security** - IMSI catcher detection, LTESniffer, srsRAN 5G (research only)
 - **💬 Matrix Synapse** - Self-hosted encrypted messaging with Element client
-- **📴 Offline-First** - Complete offline operation with dependency caching
+- **🧪 Experimental Stack** - LangFlow, Chaos Mesh, Kepler, Kratix, Rotki (cybernetic pillars)
+- **� GitHub Profile Analytics** - S+ rank stats, trophies, snake animation, WakaTime, automated workflows
+- **�📴 Offline-First** - Complete offline operation with dependency caching
 - **🔄 Idempotent** - Safe to run multiple times
 - **🧙 Install Wizard** - Interactive setup with component selection
 
@@ -161,13 +164,15 @@ Manage services with the unified CLI:
 ### 🐧 Linux / Proxmox VM
 One-liner bootstrap (Debian, Ubuntu, Fedora, Arch):
 ```bash
-curl -sSL https://raw.githubusercontent.com/kenj4mes/home.lab/main/bootstrap.sh | sudo bash
+# CUSTOMIZE: Replace with your fork's URL
+curl -sSL https://raw.githubusercontent.com/<your-github-username>/home.lab/main/bootstrap.sh | sudo bash
 ```
 
 Or step-by-step:
 ```bash
-git clone https://github.com/kenj4mes/home.lab.git
-cd homelab
+# CUSTOMIZE: Replace with your fork's URL
+git clone https://github.com/<your-github-username>/home.lab.git
+cd home.lab
 ./scripts/env-generator.sh    # Generate secure secrets
 ./scripts/init-homelab.sh     # Install everything
 ```
@@ -187,6 +192,7 @@ The `homelab` CLI (available as `homelab.ps1` on Windows and `make` on Linux) pr
 | **Creative** | `.\homelab.ps1 -Action creative` | - |
 | **PQTLS** | `.\homelab.ps1 -Action pqtls` | - |
 | **Superchain** | `.\homelab.ps1 -Action superchain` | - |
+| **Experimental** | `.\homelab.ps1 -Action experimental` | - |
 
 ### Download Models
 
@@ -334,6 +340,46 @@ See [docs/PQTLS.md](docs/PQTLS.md) for certificate generation and testing.
 
 See [docs/SUPERCHAIN.md](docs/SUPERCHAIN.md) for complete ecosystem documentation.
 
+### Experimental Stack (Optional) 🧪
+
+> **Cybernetic Pillars** - Self-regulating infrastructure that observes, reasons, and acts.
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **LangFlow** | 7860 | Visual AI workflow builder |
+| **Chaos Dashboard** | 2333 | Fault injection management |
+| **Kepler** | 9102 | eBPF energy metrics |
+| **Rotki** | 4242 | Sovereign crypto analytics |
+| **Scaphandre** | 8080 | Docker energy monitoring |
+
+See [docs/EXPERIMENTAL.md](docs/EXPERIMENTAL.md) for the five cybernetic pillars.
+
+### GitHub Profile Analytics (Optional) 📊
+
+> **S+ Rank Configuration** - Expert-tier GitHub profile optimization with automated workflows.
+
+| Component | Description |
+|-----------|-------------|
+| **github-readme-stats** | Stats card with S+ rank optimization |
+| **github-profile-trophy** | Trophy shelf with SECRET ranks |
+| **lowlighter/metrics** | Deep analytics (isocalendar, habits, achievements) |
+| **Platane/snk** | Contribution snake animation |
+| **WakaTime** | IDE coding time tracking |
+
+```powershell
+# Setup GitHub Profile automation
+.\scripts\setup-github-profile.ps1
+
+# Or on Linux/macOS
+./scripts/setup-github-profile.sh
+```
+
+Required Secrets:
+- `METRICS_TOKEN` - PAT with `repo`, `read:user`, `read:org` scopes
+- `WAKATIME_API_KEY` - From wakatime.com/settings/api-key
+
+See [docs/GITHUB_PROFILE.md](docs/GITHUB_PROFILE.md) for S+ rank strategy.
+
 ## 📁 Repository Structure
 
 ```
@@ -350,6 +396,7 @@ homelab/
 │   ├── docker-compose.creative.yml # 🎭 Creative AI Studio
 │   ├── docker-compose.pqtls.yml    # 🔐 Post-Quantum TLS
 │   ├── docker-compose.superchain.yml # ⛓️ Superchain L2 nodes
+│   ├── docker-compose.experimental.yml # 🧪 Experimental Stack
 │   └── .env.example                # Environment template
 ├── scripts/                # Automation scripts
 │   ├── lib/                       # Shared libraries
@@ -362,6 +409,8 @@ homelab/
 │   ├── download-models.sh         # Ollama model manager
 │   ├── download-creative-models.ps1 # 🎭 Creative AI model cacher
 │   ├── clone-superchain.ps1        # ⛓️ Clone all L2 repos
+│   ├── setup-github-profile.sh    # 📊 Linux/macOS profile setup
+│   ├── setup-github-profile.ps1   # 📊 Windows profile setup
 │   ├── env-generator.sh           # Secure secret generator
 │   └── init-homelab.sh            # Full setup script
 ├── install/                # Platform installers
@@ -406,7 +455,17 @@ homelab/
 │   ├── CREATIVE.md                # 🎭 Creative AI Studio
 │   ├── PQTLS.md                   # 🔐 Post-Quantum TLS
 │   ├── SUPERCHAIN.md              # ⛓️ Superchain ecosystem
+│   ├── EXPERIMENTAL.md            # 🧪 Cybernetic pillars
+│   ├── GITHUB_PROFILE.md          # 📊 GitHub Profile Analytics
 │   └── MAINTENANCE.md             # Operations guide
+├── templates/              # Templates and examples
+│   └── PROFILE_README.md          # 📊 Expert-tier GitHub profile template
+├── .github/                # GitHub configuration
+│   └── workflows/                 # GitHub Actions
+│       ├── profile-metrics.yml    # 📊 lowlighter/metrics automation
+│       ├── profile-snake.yml      # 📊 Contribution snake animation
+│       ├── profile-waka-readme.yml # 📊 WakaTime stats injection
+│       └── profile-blog-posts.yml # 📊 RSS blog post updates
 ├── homelab.ps1             # Windows unified CLI
 ├── Makefile                # Linux/macOS task runner
 └── bootstrap.sh            # Linux one-liner installer
@@ -617,6 +676,19 @@ curl -X POST http://localhost:5013/generate -F "image=@photo.png"
 .\scripts\download-creative-models.ps1
 ```
 
+### Install Hugging Face Ecosystem
+```powershell
+# Install transformers, diffusers, accelerate, huggingface-cli
+.\scripts\install-huggingface.ps1
+
+# Full install with login
+.\scripts\install-huggingface.ps1 -Full -Login
+
+# Download models via CLI
+huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0
+huggingface-cli download openai/whisper-large-v3
+```
+
 Access the unified Creative Dashboard at http://localhost:8190
 
 See [docs/CREATIVE.md](docs/CREATIVE.md) for complete Creative AI documentation.
@@ -645,13 +717,12 @@ See [docs/PQTLS.md](docs/PQTLS.md) for complete Post-Quantum TLS documentation.
 
 ## ⛓️ Superchain Ecosystem
 
-Run any OP-Stack L2 node locally with the unified Superchain infrastructure:
+Run any OP-Stack L2 node locally with the unified Superchain infrastructure.
+
+> **Note:** The `superchain/` folder with 21 L2 repositories is **included via Git LFS** (~1GB).
 
 ```powershell
-# Clone all 31 ecosystem repositories (~50GB)
-.\scripts\clone-superchain.ps1
-
-# Start Base L2 node
+# Superchain repos included via Git LFS - just start!
 .\homelab.ps1 -Action superchain
 
 # Start a specific chain
@@ -678,40 +749,40 @@ Access the Superchain Dashboard at http://localhost:8600
 
 See [docs/SUPERCHAIN.md](docs/SUPERCHAIN.md) for complete ecosystem documentation.
 
-## � Portable Installation
+## 📦 Portable Installation (Git LFS)
 
-HomeLab supports fully portable operation - copy the entire `home.lab/` folder to any drive:
+HomeLab is fully portable - clone once and all data is included via Git LFS:
 
-### Directory Structure
+### What's Included (via Git LFS)
 ```
 home.lab/
-├── data/                    # All persistent data (portable)
-│   ├── ollama/              # LLM models (~25-130GB)
-│   ├── models/              # Creative AI models (~20-50GB)
-│   ├── zim/                 # Kiwix offline knowledge (~10-160GB)
-│   └── volumes/             # Docker volume data
-├── superchain/              # 21 OP-Stack L2 repositories (~1GB)
-├── docker/                  # Compose files with local overrides
-│   ├── docker-compose.local-data.yml      # Core services local volumes
-│   ├── docker-compose.superchain-local.yml # Superchain local volumes
-│   └── docker-compose.creative-local.yml   # Creative AI local volumes
-└── scripts/                 # Download and utility scripts
-    ├── download-all.ps1     # Master download (all data)
-    ├── download-models.ps1  # Ollama LLMs
-    ├── download-creative-models.ps1  # SD, Whisper, MusicGen
-    └── download-zim.ps1     # Wikipedia, StackOverflow
+├── data/                    # ✅ INCLUDED via Git LFS (~29GB)
+│   ├── models/              # SDXL (~6.6GB) + Whisper (~138MB)
+│   └── zim/                 # Wikipedia, StackExchange offline (~22GB)
+├── superchain/              # ✅ INCLUDED via Git LFS (~1GB)
+│   └── 21 OP-Stack L2 repos
+├── docker/                  # Docker Compose stacks
+└── scripts/                 # Automation scripts
 ```
 
-### Pre-Download Everything for Offline Use
+### Clone with All Data
 ```powershell
-# Minimal (~26GB) - Essential models only
-.\scripts\download-all.ps1 -Minimal
+# Full clone with LFS data (~30GB download)
+git lfs install
+git clone https://github.com/<your-username>/home.lab.git
 
-# Standard (~95GB) - Recommended for most use
-.\scripts\download-all.ps1 -Standard
+# Shallow clone (faster, smaller)
+git clone --depth 1 https://github.com/<your-username>/home.lab.git
+git lfs pull
+```
 
-# Full (~340GB) - Everything including 70B models
-.\scripts\download-all.ps1 -Full
+### Optional: Download Additional Models
+```powershell
+# Ollama LLMs (~26GB) - downloaded on demand
+.\scripts\download-models.ps1
+
+# More Creative AI models (~50GB)
+.\scripts\download-creative-models.ps1
 ```
 
 ### Use Local Data Volumes
@@ -753,29 +824,52 @@ make update
 .\homelab.ps1 -Action update
 ```
 
-## � Data Downloads
+## 📦 Included Data (Git LFS)
 
-Large data files are **not included** in this repository due to size limits. Download them separately:
+Large data files are **included via Git LFS** - they download automatically on clone:
 
+| Data | Size | Location |
+|------|------|----------|
+| **Kiwix ZIM Files** | ~22 GB | `data/zim/` |
+| **Stable Diffusion XL** | ~6.6 GB | `data/models/sd/` |
+| **Whisper Model** | ~138 MB | `data/models/whisper/` |
+| **Superchain Repos** | ~1 GB | `superchain/` |
+
+### Git LFS Setup
+```bash
+# Install Git LFS (if not already)
+git lfs install
+
+# Clone with LFS data
+git clone https://github.com/<your-username>/home.lab.git
+
+# Or pull LFS files separately
+git lfs pull
+```
+
+### Additional Downloads (Optional)
 | Data | Size | Command |
-|------|------|---------|
+|------|------|---------||
 | **Ollama Models** | ~26 GB | `.\scripts\download-models.ps1` |
-| **Kiwix ZIM Files** | ~22 GB | `.\scripts\download-zim-fast.ps1` |
-| **Creative AI Models** | ~50 GB | `.\scripts\download-creative-models.ps1` |
-| **Superchain Repos** | ~1 GB | `.\scripts\clone-superchain.ps1` |
+| **More Creative AI** | ~50 GB | `.\scripts\download-creative-models.ps1` |
 
-📋 See **[DATA_SOURCES.md](DATA_SOURCES.md)** for complete download links and manifest.
+📋 See **[DATA_SOURCES.md](DATA_SOURCES.md)** for additional download sources.
 
 📄 Machine-readable manifest: **[data-manifest.json](data-manifest.json)**
 
-### Quick Download (All Data)
-```powershell
-# Download everything for offline use
-.\scripts\download-all.ps1 -Full
-```
-
 ---
+## 📚 Documentation
 
+| Document | Description |
+|----------|-------------|
+| [INSTALLATION.md](docs/INSTALLATION.md) | Complete infrastructure installation guide |
+| [REQUIREMENTS.md](docs/REQUIREMENTS.md) | A.2 Critical Software requirements matrix |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and design |
+| [GITOPS.md](docs/GITOPS.md) | ArgoCD GitOps workflow |
+| [SECURITY.md](docs/SECURITY.md) | Security hardening guide |
+| [GITHUB_PROFILE.md](docs/GITHUB_PROFILE.md) | GitHub Profile S+ rank optimization |
+| [Ansible README](ansible/README.md) | Automation playbook documentation |
+| [K8s Infrastructure](k8s/infrastructure/README.md) | Kubernetes infrastructure components |
 ## �📜 License
 
 MIT License - Use freely, modify as needed.

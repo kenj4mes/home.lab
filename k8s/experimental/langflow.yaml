@@ -1,0 +1,380 @@
+# ==============================================================================
+# LangFlow - Agentic AI Orchestration Platform
+# ==============================================================================
+# Visual IDE for LangChain - drag-and-drop LLM logic construction
+# Connects to local Ollama for 100% air-gapped AI workflows
+#
+# Features:
+#   - Visual LLM chain construction
+#   - Custom Python nodes for tool integration
+#   - RAG pipeline builder
+#   - Agent-based automation
+#
+# Access: https://langflow.lab.local
+# Docs: https://docs.langflow.org/
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: langflow
+  labels:
+    app.kubernetes.io/name: langflow
+    app.kubernetes.io/part-of: experimental-stack
+---
+# =============================================================================
+# PostgreSQL for LangFlow State Persistence
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: langflow-postgres-pvc
+  namespace: langflow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langflow-postgres
+  namespace: langflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langflow-postgres
+  template:
+    metadata:
+      labels:
+        app: langflow-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: langflow
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: langflow-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              value: langflow
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: langflow-postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: langflow-postgres
+  namespace: langflow
+spec:
+  selector:
+    app: langflow-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+# =============================================================================
+# LangFlow Application
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: langflow-data-pvc
+  namespace: langflow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langflow
+  namespace: langflow
+  labels:
+    app: langflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langflow
+  template:
+    metadata:
+      labels:
+        app: langflow
+    spec:
+      containers:
+        - name: langflow
+          image: langflowai/langflow:latest
+          ports:
+            - containerPort: 7860
+              name: http
+          env:
+            # Database configuration
+            - name: LANGFLOW_DATABASE_URL
+              value: "postgresql://langflow:$(POSTGRES_PASSWORD)@langflow-postgres:5432/langflow"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: langflow-secrets
+                  key: postgres-password
+            
+            # Ollama integration (air-gapped AI)
+            - name: OLLAMA_HOST
+              value: "http://ollama.ollama.svc.cluster.local:11434"
+            
+            # LangFlow settings
+            - name: LANGFLOW_AUTO_LOGIN
+              value: "false"
+            - name: LANGFLOW_SUPERUSER
+              value: "admin"
+            - name: LANGFLOW_SUPERUSER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: langflow-secrets
+                  key: admin-password
+            
+            # Disable external API calls for air-gap
+            - name: LANGFLOW_STORE
+              value: "false"
+            
+            # Data directory
+            - name: LANGFLOW_CONFIG_DIR
+              value: "/app/data"
+          
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+          
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 7860
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 7860
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: langflow-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: langflow
+  namespace: langflow
+spec:
+  selector:
+    app: langflow
+  ports:
+    - name: http
+      port: 7860
+      targetPort: 7860
+---
+# =============================================================================
+# Secrets (CHANGEME values before deployment)
+# =============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: langflow-secrets
+  namespace: langflow
+type: Opaque
+stringData:
+  # CHANGEME: Generate secure passwords before deployment
+  postgres-password: "CHANGEME_LANGFLOW_POSTGRES_PASSWORD"
+  admin-password: "CHANGEME_LANGFLOW_ADMIN_PASSWORD"
+---
+# =============================================================================
+# Ingress
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: langflow
+  namespace: langflow
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - langflow.lab.local
+      secretName: langflow-tls
+  rules:
+    - host: langflow.lab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: langflow
+                port:
+                  number: 7860
+---
+# =============================================================================
+# NetworkPolicy - Isolate LangFlow (security for Python execution)
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: langflow-network-policy
+  namespace: langflow
+spec:
+  podSelector:
+    matchLabels:
+      app: langflow
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from nginx-ingress
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 7860
+  egress:
+    # Allow connection to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: langflow-postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    
+    # Allow connection to Ollama
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ollama
+      ports:
+        - protocol: TCP
+          port: 11434
+    
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    
+    # Allow internal Kubernetes API (for some integrations)
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 443
+---
+# =============================================================================
+# Example: HomeOS Agent Flow (Custom Tool Integration)
+# =============================================================================
+# This ConfigMap contains an example LangFlow export for a "HomeOS" agent
+# that can control infrastructure via natural language
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: langflow-examples
+  namespace: langflow
+data:
+  homeos-agent.json: |
+    {
+      "name": "HomeOS Command Center",
+      "description": "Natural language infrastructure control",
+      "flows": [
+        {
+          "name": "Restart Service Agent",
+          "description": "AI agent that restarts containers via Portainer API",
+          "nodes": [
+            {
+              "type": "ChatInput",
+              "data": {
+                "input": "The media server is acting up, please restart it"
+              }
+            },
+            {
+              "type": "OllamaModel",
+              "data": {
+                "model": "llama3.2:latest",
+                "base_url": "http://ollama.ollama.svc.cluster.local:11434"
+              }
+            },
+            {
+              "type": "CustomComponent",
+              "data": {
+                "name": "PortainerRestartTool",
+                "code": "# Python code to call Portainer API for container restart"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  
+  self-correcting-code.json: |
+    {
+      "name": "Self-Correcting Code Generator",
+      "description": "Iterative code generation with error feedback loop",
+      "flows": [
+        {
+          "name": "Code Generation Loop",
+          "nodes": [
+            {"type": "Generator", "role": "Generate Python code"},
+            {"type": "Executor", "role": "Run in sandboxed environment"},
+            {"type": "Evaluator", "role": "Check for errors"},
+            {"type": "Loop", "condition": "error_count < 3"}
+          ]
+        }
+      ]
+    }

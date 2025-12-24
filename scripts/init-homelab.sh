@@ -44,8 +44,8 @@ if [[ -f "${SCRIPT_DIR}/../docker/.env" ]]; then
 fi
 
 # Default paths
-MEDIA_PATH="${MEDIA_PATH:-/srv/Tumadre}"
-CONFIG_PATH="${CONFIG_PATH:-/srv/FlashBang}"
+MEDIA_PATH="${MEDIA_PATH:-/srv/homelab/data}"
+CONFIG_PATH="${CONFIG_PATH:-/srv/homelab/config}"
 TZ="${TZ:-America/New_York}"
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"

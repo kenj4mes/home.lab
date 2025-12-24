@@ -31,7 +31,7 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/prowlarr:/config
+      - ${CONFIG_PATH:-/srv/homelab}/prowlarr:/config
     ports:
       - "9696:9696"
     networks:
@@ -50,9 +50,9 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/radarr:/config
-      - ${MEDIA_PATH:-/srv/Tumadre}/Movies:/movies
-      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+      - ${CONFIG_PATH:-/srv/homelab}/radarr:/config
+      - ${MEDIA_PATH:-/srv/media}/Movies:/movies
+      - ${MEDIA_PATH:-/srv/media}/Downloads:/downloads
     ports:
       - "7878:7878"
     networks:
@@ -71,9 +71,9 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/sonarr:/config
-      - ${MEDIA_PATH:-/srv/Tumadre}/Series:/tv
-      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+      - ${CONFIG_PATH:-/srv/homelab}/sonarr:/config
+      - ${MEDIA_PATH:-/srv/media}/Series:/tv
+      - ${MEDIA_PATH:-/srv/media}/Downloads:/downloads
     ports:
       - "8989:8989"
     networks:
@@ -92,9 +92,9 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/lidarr:/config
-      - ${MEDIA_PATH:-/srv/Tumadre}/Music:/music
-      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+      - ${CONFIG_PATH:-/srv/homelab}/lidarr:/config
+      - ${MEDIA_PATH:-/srv/media}/Music:/music
+      - ${MEDIA_PATH:-/srv/media}/Downloads:/downloads
     ports:
       - "8686:8686"
     networks:
@@ -113,9 +113,9 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/readarr:/config
-      - ${MEDIA_PATH:-/srv/Tumadre}/Books:/books
-      - ${MEDIA_PATH:-/srv/Tumadre}/Downloads:/downloads
+      - ${CONFIG_PATH:-/srv/homelab}/readarr:/config
+      - ${MEDIA_PATH:-/srv/media}/Books:/books
+      - ${MEDIA_PATH:-/srv/media}/Downloads:/downloads
     ports:
       - "8787:8787"
     networks:
@@ -134,9 +134,9 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/bazarr:/config
-      - ${MEDIA_PATH:-/srv/Tumadre}/Movies:/movies
-      - ${MEDIA_PATH:-/srv/Tumadre}/Series:/tv
+      - ${CONFIG_PATH:-/srv/homelab}/bazarr:/config
+      - ${MEDIA_PATH:-/srv/media}/Movies:/movies
+      - ${MEDIA_PATH:-/srv/media}/Series:/tv
     ports:
       - "6767:6767"
     networks:
@@ -155,7 +155,7 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/tautulli:/config
+      - ${CONFIG_PATH:-/srv/homelab}/tautulli:/config
     ports:
       - "8181:8181"
     networks:
@@ -174,7 +174,7 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${CONFIG_PATH:-/srv/FlashBang}/overseerr:/config
+      - ${CONFIG_PATH:-/srv/homelab}/overseerr:/config
     ports:
       - "5055:5055"
     networks:

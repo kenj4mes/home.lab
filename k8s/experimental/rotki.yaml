@@ -1,0 +1,339 @@
+# ==============================================================================
+# Rotki - Sovereign Financial Analytics
+# ==============================================================================
+# Local-first crypto/DeFi portfolio tracker
+# All data stored locally in encrypted SQLCipher database
+#
+# Features:
+#   - Multi-chain asset tracking
+#   - DeFi protocol analytics
+#   - Tax reporting (CSV export)
+#   - No cloud sync - 100% sovereign
+#
+# Access: https://rotki.lab.local
+# Docs: https://rotki.readthedocs.io/
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rotki
+  labels:
+    app.kubernetes.io/name: rotki
+    app.kubernetes.io/part-of: experimental-stack
+---
+# =============================================================================
+# Persistent Storage for Rotki Data
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rotki-data-pvc
+  namespace: rotki
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+---
+# =============================================================================
+# Rotki Deployment
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rotki
+  namespace: rotki
+  labels:
+    app: rotki
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rotki
+  template:
+    metadata:
+      labels:
+        app: rotki
+    spec:
+      containers:
+        - name: rotki
+          # Official Rotki Docker image with web interface
+          image: rotki/rotki:v1.32.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4242
+              name: http
+          env:
+            # Accept the risk of running in Docker (required)
+            - name: ROTKI_ACCEPT_DOCKER_RISK
+              value: "1"
+            
+            # Data directory
+            - name: XDG_DATA_HOME
+              value: "/data"
+            
+            # Logging
+            - name: ROTKI_LOGLEVEL
+              value: "INFO"
+            
+            # API settings
+            - name: ROTKI_API_HOST
+              value: "0.0.0.0"
+            - name: ROTKI_API_PORT
+              value: "4242"
+            
+            # Connect to local Base L2 node (if available)
+            - name: ROTKI_ETH_RPC_ENDPOINT
+              value: "http://base-node.base.svc.cluster.local:8545"
+          
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+          
+          livenessProbe:
+            httpGet:
+              path: /api/1/ping
+              port: 4242
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+          
+          readinessProbe:
+            httpGet:
+              path: /api/1/ping
+              port: 4242
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: rotki-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rotki
+  namespace: rotki
+spec:
+  selector:
+    app: rotki
+  ports:
+    - name: http
+      port: 4242
+      targetPort: 4242
+---
+# =============================================================================
+# Ingress (Protected by auth proxy in production)
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rotki
+  namespace: rotki
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+    # Recommended: Add OAuth2 proxy or basic auth for protection
+    # nginx.ingress.kubernetes.io/auth-url: "https://auth.lab.local/oauth2/auth"
+    # nginx.ingress.kubernetes.io/auth-signin: "https://auth.lab.local/oauth2/start?rd=$request_uri"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rotki.lab.local
+      secretName: rotki-tls
+  rules:
+    - host: rotki.lab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rotki
+                port:
+                  number: 4242
+---
+# =============================================================================
+# NetworkPolicy - Restrict Rotki Network Access
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rotki-network-policy
+  namespace: rotki
+spec:
+  podSelector:
+    matchLabels:
+      app: rotki
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from nginx-ingress
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 4242
+  egress:
+    # Allow connection to local Base L2 node
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: base
+      ports:
+        - protocol: TCP
+          port: 8545
+    
+    # Allow connection to Ollama for any AI-powered analysis
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ollama
+      ports:
+        - protocol: TCP
+          port: 11434
+    
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    
+    # Optionally allow external RPC (if not using local node)
+    # Remove this in fully air-gapped mode
+    # - to:
+    #     - ipBlock:
+    #         cidr: 0.0.0.0/0
+    #   ports:
+    #     - protocol: TCP
+    #       port: 443
+---
+# =============================================================================
+# CronJob for Automated Portfolio Snapshots
+# =============================================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rotki-snapshot
+  namespace: rotki
+spec:
+  schedule: "0 6 * * *"  # Daily at 6 AM
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: snapshot
+              image: curlimages/curl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Trigger balance refresh via Rotki API
+                  curl -X POST http://rotki.rotki.svc.cluster.local:4242/api/1/balances
+                  
+                  # Export current state (for backup)
+                  curl http://rotki.rotki.svc.cluster.local:4242/api/1/statistics/value_distribution \
+                    -o /tmp/snapshot-$(date +%Y%m%d).json
+                  
+                  echo "Snapshot completed at $(date)"
+          restartPolicy: OnFailure
+---
+# =============================================================================
+# Prometheus Exporter (Optional - for Grafana dashboards)
+# =============================================================================
+# Note: Rotki doesn't have a native Prometheus exporter, but you can 
+# create a simple sidecar that polls the API and exports metrics
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rotki-exporter-config
+  namespace: rotki
+data:
+  exporter.py: |
+    #!/usr/bin/env python3
+    """
+    Simple Prometheus exporter for Rotki metrics.
+    Polls Rotki API and exposes portfolio values as Prometheus metrics.
+    """
+    import requests
+    import time
+    from prometheus_client import start_http_server, Gauge
+    
+    # Metrics
+    portfolio_value = Gauge('rotki_portfolio_value_usd', 'Total portfolio value in USD')
+    asset_balance = Gauge('rotki_asset_balance', 'Balance per asset', ['asset'])
+    
+    ROTKI_URL = "http://localhost:4242"
+    
+    def fetch_metrics():
+        try:
+            # Get total portfolio value
+            resp = requests.get(f"{ROTKI_URL}/api/1/statistics/netvalue")
+            if resp.status_code == 200:
+                data = resp.json()
+                if 'result' in data and 'times' in data['result']:
+                    latest_value = data['result']['data'][-1] if data['result']['data'] else 0
+                    portfolio_value.set(latest_value)
+            
+            # Get asset balances
+            resp = requests.get(f"{ROTKI_URL}/api/1/balances")
+            if resp.status_code == 200:
+                data = resp.json()
+                if 'result' in data:
+                    for asset, balance in data['result'].get('assets', {}).items():
+                        asset_balance.labels(asset=asset).set(balance.get('amount', 0))
+        except Exception as e:
+            print(f"Error fetching metrics: {e}")
+    
+    if __name__ == '__main__':
+        start_http_server(9103)
+        while True:
+            fetch_metrics()
+            time.sleep(300)  # Update every 5 minutes
+---
+# =============================================================================
+# Usage Notes
+# =============================================================================
+# 1. First-time setup:
+#    - Access https://rotki.lab.local
+#    - Create a new account (stored locally in SQLCipher)
+#    - Add your wallet addresses for tracking
+#
+# 2. Connect to local Base L2 node:
+#    - In Rotki settings, set ETH RPC to: http://base-node.base.svc.cluster.local:8545
+#    - This enables fully local balance queries
+#
+# 3. Air-gapped mode:
+#    - Remove the external egress rule in NetworkPolicy
+#    - Ensure all blockchain nodes are running locally
+#
+# 4. Backup:
+#    - The SQLCipher database is in /data/.rotki/
+#    - Use Velero or manual PVC backup
+#
+# 5. Security:
+#    - Enable auth proxy for production
+#    - Never expose without authentication
+#    - Data is encrypted with your user password

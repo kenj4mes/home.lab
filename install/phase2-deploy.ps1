@@ -82,8 +82,8 @@ $setupZFS = Read-Host "Do you want to create ZFS pools now? (y/N)"
 if ($setupZFS -eq 'y' -or $setupZFS -eq 'Y') {
     Write-Host ""
     Write-Host "This will create:" -ForegroundColor Yellow
-    Write-Host "  - FlashBang: Mirror of SSDs for VMs/configs"
-    Write-Host "  - Tumadre: RAIDZ1 of HDDs for media storage"
+    Write-Host "  - fast-pool: Mirror of SSDs for VMs/configs"
+    Write-Host "  - bulk-pool: RAIDZ1 of HDDs for media storage"
     Write-Host ""
     Write-Host "[WARN]️  WARNING: This will DESTROY data on the selected disks!" -ForegroundColor Red
     Write-Host ""

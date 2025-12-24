@@ -1,0 +1,128 @@
+---
+# ==============================================================================
+# ☸️ Kubernetes Common Role - Prerequisites for all K8s nodes
+# ==============================================================================
+
+# Disable swap (required for Kubernetes)
+- name: Disable swap
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+
+- name: Remove swap from fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+
+# Load required kernel modules
+- name: Load kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+
+- name: Ensure kernel modules load on boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+    owner: root
+    group: root
+    mode: '0644'
+
+# Configure sysctl for Kubernetes
+- name: Configure sysctl for Kubernetes
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/k8s.conf
+    reload: true
+  loop:
+    - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+    - { key: 'net.ipv4.ip_forward', value: '1' }
+
+# Install container runtime
+- name: Install containerd
+  ansible.builtin.include_tasks: containerd.yml
+  when: container_runtime == 'containerd'
+
+- name: Install CRI-O
+  ansible.builtin.include_tasks: crio.yml
+  when: container_runtime == 'crio'
+
+# Install Kubernetes packages
+- name: Install Kubernetes repo (Debian/Ubuntu)
+  block:
+    - name: Add Kubernetes GPG key
+      ansible.builtin.get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v{{ k8s_version_major }}/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+        mode: '0644'
+
+    - name: Add Kubernetes repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v{{ k8s_version_major }}/deb/ /"
+        state: present
+        filename: kubernetes
+
+    - name: Install Kubernetes packages
+      ansible.builtin.apt:
+        name:
+          - kubelet={{ k8s_version }}*
+          - kubeadm={{ k8s_version }}*
+          - kubectl={{ k8s_version }}*
+        state: present
+        update_cache: true
+
+    - name: Hold Kubernetes packages
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+  when: ansible_os_family == "Debian"
+
+- name: Install Kubernetes repo (RHEL/Fedora)
+  block:
+    - name: Add Kubernetes repository
+      ansible.builtin.yum_repository:
+        name: kubernetes
+        description: Kubernetes
+        baseurl: https://pkgs.k8s.io/core:/stable:/v{{ k8s_version_major }}/rpm/
+        enabled: true
+        gpgcheck: true
+        gpgkey: https://pkgs.k8s.io/core:/stable:/v{{ k8s_version_major }}/rpm/repodata/repomd.xml.key
+
+    - name: Install Kubernetes packages
+      ansible.builtin.dnf:
+        name:
+          - kubelet-{{ k8s_version }}
+          - kubeadm-{{ k8s_version }}
+          - kubectl-{{ k8s_version }}
+        state: present
+        disable_excludes: kubernetes
+  when: ansible_os_family == "RedHat"
+
+# Enable and start kubelet
+- name: Enable kubelet
+  ansible.builtin.systemd:
+    name: kubelet
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# Firewall rules
+- name: Configure firewall for Kubernetes (firewalld)
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+  loop: "{{ k8s_firewall_ports }}"
+  when: ansible_os_family == "RedHat"
+  notify: Reload firewalld

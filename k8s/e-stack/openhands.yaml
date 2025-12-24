@@ -1,0 +1,347 @@
+# ==============================================================================
+# 🤖 OpenHands - Autonomous AI Software Engineer
+# ==============================================================================
+# Self-hosted AI agent that can write, test, and deploy code
+# Uses Docker-in-Docker (DinD) sidecar for sandboxed execution
+#
+# WARNING: Runs privileged containers - use with caution
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openhands
+  labels:
+    app.kubernetes.io/name: openhands
+    app.kubernetes.io/part-of: ai-stack
+
+---
+# ==============================================================================
+# Secrets for OpenHands
+# ==============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openhands-secrets
+  namespace: openhands
+type: Opaque
+stringData:
+  # LLM Backend Configuration
+  # Option 1: Use local Ollama
+  llm-api-base: "http://ollama.ollama.svc.cluster.local:11434/v1"
+  llm-model: "qwen2.5-coder:32b"
+  llm-api-key: "ollama"  # Ollama doesn't need a real key
+  
+  # Option 2: Use external API (uncomment and set)
+  # llm-api-base: "https://api.openai.com/v1"
+  # llm-model: "gpt-4o"
+  # llm-api-key: "CHANGEME_OPENAI_API_KEY"
+  
+  # GitHub integration (optional)
+  github-token: "CHANGEME_GITHUB_PAT"
+
+---
+# ==============================================================================
+# Persistent Storage for Workspaces
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openhands-workspace-pvc
+  namespace: openhands
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# ==============================================================================
+# OpenHands Deployment with DinD Sidecar
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openhands
+  namespace: openhands
+  labels:
+    app: openhands
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openhands
+  template:
+    metadata:
+      labels:
+        app: openhands
+    spec:
+      # Security: Use dedicated service account
+      serviceAccountName: openhands
+      
+      volumes:
+        # Shared workspace between agent and DinD
+        - name: workspace-volume
+          persistentVolumeClaim:
+            claimName: openhands-workspace-pvc
+        # Docker storage for DinD
+        - name: dind-storage
+          emptyDir: {}
+        # Shared memory for browser automation
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+      
+      containers:
+        # =======================================================
+        # Container 1: OpenHands Agent
+        # =======================================================
+        - name: openhands-app
+          image: ghcr.io/all-hands-ai/openhands:0.24
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          
+          env:
+            # Workspace configuration
+            - name: WORKSPACE_MOUNT_PATH
+              value: "/opt/workspace_base"
+            - name: WORKSPACE_BASE
+              value: "/opt/workspace_base"
+            
+            # Docker-in-Docker connection (sidecar)
+            - name: DOCKER_HOST
+              value: "tcp://localhost:2375"
+            
+            # Sandbox runtime image
+            - name: SANDBOX_RUNTIME_CONTAINER_IMAGE
+              value: "docker.all-hands.dev/all-hands-ai/runtime:0.24-nikolaik"
+            
+            # Backend binding
+            - name: BACKEND_HOST
+              value: "0.0.0.0"
+            
+            # LLM Configuration
+            - name: LLM_API_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: openhands-secrets
+                  key: llm-api-base
+            - name: LLM_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: openhands-secrets
+                  key: llm-model
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openhands-secrets
+                  key: llm-api-key
+            
+            # GitHub token for repo access
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openhands-secrets
+                  key: github-token
+                  optional: true
+          
+          volumeMounts:
+            - name: workspace-volume
+              mountPath: /opt/workspace_base
+            - name: dshm
+              mountPath: /dev/shm
+          
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "500m"
+            limits:
+              memory: "8Gi"
+              cpu: "4000m"
+          
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+        
+        # =======================================================
+        # Container 2: Docker-in-Docker Sidecar
+        # =======================================================
+        - name: dind
+          image: docker:26-dind
+          securityContext:
+            privileged: true  # Required for DinD
+          
+          env:
+            # Disable TLS for localhost communication
+            - name: DOCKER_TLS_CERTDIR
+              value: ""
+          
+          args:
+            - "--host=tcp://0.0.0.0:2375"
+            - "--storage-driver=overlay2"
+            - "--tls=false"
+          
+          volumeMounts:
+            - name: dind-storage
+              mountPath: /var/lib/docker
+            # Must match agent's workspace path
+            - name: workspace-volume
+              mountPath: /opt/workspace_base
+            - name: dshm
+              mountPath: /dev/shm
+          
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "250m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+
+---
+# ==============================================================================
+# Service Account with RBAC
+# ==============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openhands
+  namespace: openhands
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: openhands-role
+  namespace: openhands
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openhands-rolebinding
+  namespace: openhands
+subjects:
+  - kind: ServiceAccount
+    name: openhands
+    namespace: openhands
+roleRef:
+  kind: Role
+  name: openhands-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ==============================================================================
+# Service
+# ==============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: openhands
+  namespace: openhands
+spec:
+  selector:
+    app: openhands
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+
+---
+# ==============================================================================
+# Ingress
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openhands-ingress
+  namespace: openhands
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - openhands.homelab.local
+      secretName: openhands-tls
+  rules:
+    - host: openhands.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: openhands
+                port:
+                  number: 80
+
+---
+# ==============================================================================
+# Network Policy - Restrict DinD access
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openhands-network-policy
+  namespace: openhands
+spec:
+  podSelector:
+    matchLabels:
+      app: openhands
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 3000
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+    # Allow Ollama LLM
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ollama
+      ports:
+        - port: 11434
+    # Allow external HTTPS (for pulling images, APIs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
+        - port: 80

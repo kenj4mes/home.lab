@@ -103,7 +103,7 @@ Or from Windows:
 **What it does:**
 - Removes subscription nag
 - Enables IOMMU for GPU passthrough
-- Creates ZFS pools (FlashBang, Tumadre)
+- Creates ZFS pools (fast-pool, bulk-pool)
 - Configures networking
 
 ---

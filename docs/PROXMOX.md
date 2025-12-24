@@ -200,7 +200,7 @@ update-initramfs -u
      - BIOS: OVMF (UEFI)
      - Add EFI Disk: Yes
    - **Disks:**
-     - Storage: FlashBang
+     - Storage: homelab
      - Size: 100 GB
      - SSD emulation: Yes
    - **CPU:**
@@ -226,7 +226,7 @@ qm create 100 \
   --cpu host \
   --net0 virtio,bridge=vmbr0 \
   --scsihw virtio-scsi-pci \
-  --scsi0 FlashBang:100,format=raw,ssd=1 \
+  --scsi0 homelab:100,format=raw,ssd=1 \
   --ide2 local:iso/debian-12-netinst.iso,media=cdrom \
   --boot order=ide2
 
@@ -358,7 +358,7 @@ Via Web UI:
 
 Via CLI:
 ```bash
-vzdump 100 --storage FlashBang --mode snapshot --compress zstd
+vzdump 100 --storage homelab --mode snapshot --compress zstd
 ```
 
 ### Scheduled Backups
@@ -401,3 +401,6 @@ qmrestore /var/lib/vz/dump/vzdump-qemu-100-*.vma.zst 100
 ---
 
 *HomeLab - Self-Hosted Infrastructure*
+
+
+

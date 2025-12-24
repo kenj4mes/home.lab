@@ -1,0 +1,321 @@
+# ==============================================================================
+# 📋 Plane - Open Source Project Management (Jira/Linear Alternative)
+# ==============================================================================
+# Plane is a modern, fast, and beautiful project management tool.
+# Self-hosted alternative to Jira, Linear, Asana.
+#
+# FEATURES:
+#   - Issues, Cycles, Modules
+#   - Kanban boards
+#   - Roadmaps
+#   - GitHub/GitLab integration
+#
+# PREREQUISITES:
+#   - PostgreSQL database
+#   - Redis for caching
+#   - MinIO/S3 for file storage (optional)
+#
+# INSTALLATION:
+#   kubectl apply -f plane.yaml
+#
+# ACCESS:
+#   http://plane.homelab.local
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: plane
+  labels:
+    app.kubernetes.io/name: plane
+    app.kubernetes.io/component: project-management
+---
+# PostgreSQL for Plane
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: plane-postgres
+  namespace: plane
+spec:
+  serviceName: plane-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plane-postgres
+  template:
+    metadata:
+      labels:
+        app: plane-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: plane
+            - name: POSTGRES_USER
+              value: plane
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: plane-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plane-postgres
+  namespace: plane
+spec:
+  selector:
+    app: plane-postgres
+  ports:
+    - port: 5432
+  clusterIP: None
+---
+# Redis for Plane
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-redis
+  namespace: plane
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plane-redis
+  template:
+    metadata:
+      labels:
+        app: plane-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plane-redis
+  namespace: plane
+spec:
+  selector:
+    app: plane-redis
+  ports:
+    - port: 6379
+---
+# Plane API Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-api
+  namespace: plane
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plane-api
+  template:
+    metadata:
+      labels:
+        app: plane-api
+    spec:
+      containers:
+        - name: api
+          image: makeplane/plane-backend:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: plane-secrets
+                  key: database-url
+            - name: REDIS_URL
+              value: "redis://plane-redis:6379"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: plane-secrets
+                  key: secret-key
+            - name: DJANGO_SETTINGS_MODULE
+              value: "plane.settings.production"
+            - name: CORS_ALLOWED_ORIGINS
+              value: "https://plane.homelab.local"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plane-api
+  namespace: plane
+spec:
+  selector:
+    app: plane-api
+  ports:
+    - port: 8000
+---
+# Plane Web Frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-web
+  namespace: plane
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plane-web
+  template:
+    metadata:
+      labels:
+        app: plane-web
+    spec:
+      containers:
+        - name: web
+          image: makeplane/plane-frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_BASE_URL
+              value: "https://plane.homelab.local/api"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plane-web
+  namespace: plane
+spec:
+  selector:
+    app: plane-web
+  ports:
+    - port: 3000
+---
+# Plane Worker (Background Jobs)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-worker
+  namespace: plane
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plane-worker
+  template:
+    metadata:
+      labels:
+        app: plane-worker
+    spec:
+      containers:
+        - name: worker
+          image: makeplane/plane-backend:latest
+          command: ["python", "manage.py", "rqworker"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: plane-secrets
+                  key: database-url
+            - name: REDIS_URL
+              value: "redis://plane-redis:6379"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: plane-secrets
+                  key: secret-key
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+---
+# Ingress for Plane
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: plane
+  namespace: plane
+  annotations:
+    cert-manager.io/cluster-issuer: "homelab-ca-issuer"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - plane.homelab.local
+      secretName: plane-tls
+  rules:
+    - host: plane.homelab.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-api
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-web
+                port:
+                  number: 3000
+---
+# Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: plane-secrets
+  namespace: plane
+type: Opaque
+stringData:
+  postgres-password: "CHANGEME_PLANE_DB_PASSWORD"
+  database-url: "postgres://plane:CHANGEME_PLANE_DB_PASSWORD@plane-postgres:5432/plane"
+  secret-key: "CHANGEME_DJANGO_SECRET_KEY_50_CHARS_MINIMUM_RANDOM"

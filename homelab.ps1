@@ -29,7 +29,7 @@
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
     [Parameter(Mandatory=$true, Position=0)]
-    [ValidateSet('start', 'stop', 'status', 'logs', 'restart', 'update', 'reset', 'pull', 'health', 'quantum', 'base', 'monitoring', 'install', 'web3', 'agents', 'trellis', 'sdr', 'matrix', 'creative', 'pqtls', 'superchain')]
+    [ValidateSet('start', 'stop', 'status', 'logs', 'restart', 'update', 'reset', 'pull', 'health', 'quantum', 'base', 'monitoring', 'install', 'web3', 'agents', 'trellis', 'sdr', 'matrix', 'creative', 'pqtls', 'superchain', 'experimental')]
     [string]$Action,
     
     [Parameter(Position=1)]
@@ -810,6 +810,32 @@ switch ($Action) {
         if ($PSCmdlet.ShouldProcess("Superchain services", "Start")) {
             $chain = if ($Service) { $Service } else { "base" }
             Start-SuperchainServices -Chain $chain
+        }
+    }
+    
+    'experimental' {
+        if ($PSCmdlet.ShouldProcess("Experimental stack services", "Start")) {
+            Write-Log "Starting Experimental Stack (Cybernetic Pillars)..." "INFO"
+            $experimentalCompose = Join-Path $DockerDir "docker-compose.experimental.yml"
+            if (Test-Path $experimentalCompose) {
+                Push-Location $DockerDir
+                try {
+                    docker compose -f "docker-compose.experimental.yml" up -d
+                    Write-Log "Experimental Stack started" "SUCCESS"
+                    Write-Host ""
+                    Write-Host "Services started:" -ForegroundColor Cyan
+                    Write-Host "  🧠 LangFlow:     http://localhost:7860" -ForegroundColor White
+                    Write-Host "  💰 Rotki:        http://localhost:4242" -ForegroundColor White
+                    Write-Host "  ⚡ Scaphandre:   http://localhost:8080/metrics" -ForegroundColor White
+                    Write-Host "  🔄 n8n:          http://localhost:5679" -ForegroundColor White
+                    Write-Host "  📋 Dozzle:       http://localhost:9999" -ForegroundColor White
+                    Write-Host ""
+                } finally {
+                    Pop-Location
+                }
+            } else {
+                Write-Log "docker-compose.experimental.yml not found" "ERROR"
+            }
         }
     }
     

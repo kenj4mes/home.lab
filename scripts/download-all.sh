@@ -32,8 +32,8 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Default paths (customize in .env or override here)
-MEDIA_PATH="${MEDIA_PATH:-/srv/Tumadre}"
-CONFIG_PATH="${CONFIG_PATH:-/srv/FlashBang}"
+MEDIA_PATH="${MEDIA_PATH:-/srv/homelab/data}"
+CONFIG_PATH="${CONFIG_PATH:-/srv/homelab/config}"
 ZIM_PATH="${MEDIA_PATH}/ZIM"
 OLLAMA_PATH="${CONFIG_PATH}/ollama"
 

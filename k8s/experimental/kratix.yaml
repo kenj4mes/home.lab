@@ -1,0 +1,462 @@
+# ==============================================================================
+# Kratix - Platform Engineering & Everything-as-a-Service
+# ==============================================================================
+# Build internal developer platforms with "Promises"
+# Transform your homelab into a private cloud provider
+#
+# Features:
+#   - XaaS (Anything-as-a-Service) via CRDs
+#   - Promise-based resource provisioning
+#   - Multi-cluster support (via vCluster)
+#   - Pipeline-based fulfillment
+#
+# Docs: https://kratix.io/docs/
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kratix-platform
+  labels:
+    app.kubernetes.io/name: kratix
+    app.kubernetes.io/part-of: experimental-stack
+---
+# =============================================================================
+# RBAC
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kratix-platform
+  namespace: kratix-platform
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kratix-platform
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kratix-platform
+subjects:
+  - kind: ServiceAccount
+    name: kratix-platform
+    namespace: kratix-platform
+roleRef:
+  kind: ClusterRole
+  name: kratix-platform
+  apiGroup: rbac.authorization.k8s.io
+---
+# =============================================================================
+# Kratix Controller
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kratix-platform-controller
+  namespace: kratix-platform
+  labels:
+    app: kratix-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kratix-controller
+  template:
+    metadata:
+      labels:
+        app: kratix-controller
+    spec:
+      serviceAccountName: kratix-platform
+      containers:
+        - name: controller
+          image: ghcr.io/syntasso/kratix:v0.0.13
+          args:
+            - --leader-elect
+          ports:
+            - containerPort: 8080
+              name: metrics
+            - containerPort: 9443
+              name: webhook
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# =============================================================================
+# Kratix CRDs (Simplified - full CRDs from Kratix release)
+# =============================================================================
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: promises.platform.kratix.io
+spec:
+  group: platform.kratix.io
+  names:
+    kind: Promise
+    listKind: PromiseList
+    plural: promises
+    singular: promise
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: destinations.platform.kratix.io
+spec:
+  group: platform.kratix.io
+  names:
+    kind: Destination
+    listKind: DestinationList
+    plural: destinations
+    singular: destination
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+---
+# =============================================================================
+# Worker Cluster Destination (Single-cluster mode)
+# =============================================================================
+apiVersion: platform.kratix.io/v1alpha1
+kind: Destination
+metadata:
+  name: worker-cluster
+  labels:
+    environment: homelab
+spec:
+  # For single-cluster, we target the same cluster
+  # For multi-cluster, configure kubeconfig or use vCluster
+  stateStoreRef:
+    kind: BucketStateStore
+    name: default-bucket
+---
+# =============================================================================
+# Example Promise: DevEnvironment-as-a-Service
+# =============================================================================
+# This Promise allows users to request full development environments
+# with code-server and PostgreSQL via a simple YAML
+apiVersion: platform.kratix.io/v1alpha1
+kind: Promise
+metadata:
+  name: dev-environment
+  labels:
+    category: development
+spec:
+  # The API users interact with
+  api:
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      name: devenvironments.platform.homelab.io
+    spec:
+      group: platform.homelab.io
+      names:
+        kind: DevEnvironment
+        listKind: DevEnvironmentList
+        plural: devenvironments
+        singular: devenvironment
+        shortNames:
+          - devenv
+      scope: Namespaced
+      versions:
+        - name: v1
+          served: true
+          storage: true
+          schema:
+            openAPIV3Schema:
+              type: object
+              properties:
+                spec:
+                  type: object
+                  required:
+                    - language
+                  properties:
+                    language:
+                      type: string
+                      enum: [python, nodejs, go, rust]
+                      description: "Primary language for the environment"
+                    db:
+                      type: boolean
+                      default: false
+                      description: "Include PostgreSQL database"
+                    size:
+                      type: string
+                      enum: [small, medium, large]
+                      default: small
+                      description: "Resource allocation tier"
+                status:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    ready:
+                      type: boolean
+  
+  # What gets installed on the platform cluster
+  dependencies:
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: dev-environments
+  
+  # Pipeline to fulfill requests
+  workflows:
+    resource:
+      configure:
+        - apiVersion: platform.kratix.io/v1alpha1
+          kind: Pipeline
+          metadata:
+            name: configure-dev-env
+          spec:
+            containers:
+              - name: generate-resources
+                image: ghcr.io/syntasso/kratix-pipeline-utility:v0.0.1
+                command: ["/bin/sh"]
+                args:
+                  - -c
+                  - |
+                    # Read the request
+                    export NAME=$(yq '.metadata.name' /kratix/input/object.yaml)
+                    export NAMESPACE=$(yq '.metadata.namespace' /kratix/input/object.yaml)
+                    export LANGUAGE=$(yq '.spec.language' /kratix/input/object.yaml)
+                    export SIZE=$(yq '.spec.size // "small"' /kratix/input/object.yaml)
+                    export INCLUDE_DB=$(yq '.spec.db // false' /kratix/input/object.yaml)
+                    
+                    # Size mappings
+                    case $SIZE in
+                      small)  CPU="500m"; MEM="1Gi" ;;
+                      medium) CPU="1";    MEM="2Gi" ;;
+                      large)  CPU="2";    MEM="4Gi" ;;
+                    esac
+                    
+                    # Generate code-server deployment
+                    cat > /kratix/output/deployment.yaml <<EOF
+                    apiVersion: apps/v1
+                    kind: Deployment
+                    metadata:
+                      name: devenv-${NAME}
+                      namespace: dev-environments
+                    spec:
+                      replicas: 1
+                      selector:
+                        matchLabels:
+                          app: devenv-${NAME}
+                      template:
+                        metadata:
+                          labels:
+                            app: devenv-${NAME}
+                        spec:
+                          containers:
+                            - name: code-server
+                              image: codercom/code-server:latest
+                              ports:
+                                - containerPort: 8080
+                              resources:
+                                requests:
+                                  cpu: ${CPU}
+                                  memory: ${MEM}
+                    EOF
+                    
+                    # Generate ingress
+                    cat > /kratix/output/ingress.yaml <<EOF
+                    apiVersion: networking.k8s.io/v1
+                    kind: Ingress
+                    metadata:
+                      name: devenv-${NAME}
+                      namespace: dev-environments
+                    spec:
+                      ingressClassName: nginx
+                      rules:
+                        - host: ${NAME}.dev.lab.local
+                          http:
+                            paths:
+                              - path: /
+                                pathType: Prefix
+                                backend:
+                                  service:
+                                    name: devenv-${NAME}
+                                    port:
+                                      number: 8080
+                    EOF
+                    
+                    # If database requested, generate PostgreSQL
+                    if [ "$INCLUDE_DB" = "true" ]; then
+                      cat > /kratix/output/database.yaml <<EOF
+                    apiVersion: apps/v1
+                    kind: StatefulSet
+                    metadata:
+                      name: devenv-${NAME}-db
+                      namespace: dev-environments
+                    spec:
+                      replicas: 1
+                      selector:
+                        matchLabels:
+                          app: devenv-${NAME}-db
+                      template:
+                        metadata:
+                          labels:
+                            app: devenv-${NAME}-db
+                        spec:
+                          containers:
+                            - name: postgres
+                              image: postgres:16-alpine
+                              env:
+                                - name: POSTGRES_PASSWORD
+                                  value: devenv-secret
+                    EOF
+                    fi
+---
+# =============================================================================
+# Example Promise: Ollama-Model-as-a-Service
+# =============================================================================
+# Request specific AI models to be pulled and made available
+apiVersion: platform.kratix.io/v1alpha1
+kind: Promise
+metadata:
+  name: ai-model
+  labels:
+    category: ai
+spec:
+  api:
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      name: aimodels.platform.homelab.io
+    spec:
+      group: platform.homelab.io
+      names:
+        kind: AIModel
+        plural: aimodels
+        singular: aimodel
+      scope: Cluster
+      versions:
+        - name: v1
+          served: true
+          storage: true
+          schema:
+            openAPIV3Schema:
+              type: object
+              properties:
+                spec:
+                  type: object
+                  required:
+                    - model
+                  properties:
+                    model:
+                      type: string
+                      description: "Ollama model name (e.g., llama3.2:latest)"
+                    priority:
+                      type: string
+                      enum: [low, normal, high]
+                      default: normal
+  
+  workflows:
+    resource:
+      configure:
+        - apiVersion: platform.kratix.io/v1alpha1
+          kind: Pipeline
+          metadata:
+            name: pull-ai-model
+          spec:
+            containers:
+              - name: pull-model
+                image: curlimages/curl:latest
+                command: ["/bin/sh"]
+                args:
+                  - -c
+                  - |
+                    MODEL=$(yq '.spec.model' /kratix/input/object.yaml)
+                    
+                    # Create a Job to pull the model
+                    cat > /kratix/output/pull-job.yaml <<EOF
+                    apiVersion: batch/v1
+                    kind: Job
+                    metadata:
+                      name: pull-model-$(echo $MODEL | tr ':.' '-')
+                      namespace: ollama
+                    spec:
+                      template:
+                        spec:
+                          containers:
+                            - name: pull
+                              image: curlimages/curl:latest
+                              command:
+                                - curl
+                                - -X
+                                - POST
+                                - http://ollama.ollama.svc.cluster.local:11434/api/pull
+                                - -d
+                                - '{"name": "${MODEL}"}'
+                          restartPolicy: Never
+                    EOF
+---
+# =============================================================================
+# Usage Examples
+# =============================================================================
+# Once the Promise is installed, users can create resources like this:
+#
+# ---
+# apiVersion: platform.homelab.io/v1
+# kind: DevEnvironment
+# metadata:
+#   name: project-alpha
+#   namespace: default
+# spec:
+#   language: python
+#   db: true
+#   size: medium
+#
+# ---
+# apiVersion: platform.homelab.io/v1
+# kind: AIModel
+# metadata:
+#   name: deepseek-r1
+# spec:
+#   model: deepseek-r1:latest
+#   priority: high

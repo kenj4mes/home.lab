@@ -1,0 +1,131 @@
+# ==============================================================================
+# 🔐 Cert-Manager - Automated TLS Certificate Management
+# ==============================================================================
+# Cert-Manager automates the management and issuance of TLS certificates
+# from various sources including Let's Encrypt, HashiCorp Vault, and self-signed.
+#
+# INSTALLATION (via Helm - recommended):
+#   helm repo add jetstack https://charts.jetstack.io
+#   helm repo update
+#   helm install cert-manager jetstack/cert-manager \
+#     --namespace cert-manager --create-namespace \
+#     --set installCRDs=true \
+#     --set prometheus.enabled=true
+#
+# VERIFY:
+#   kubectl get pods -n cert-manager
+#   kubectl get clusterissuers
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    app.kubernetes.io/name: cert-manager
+    app.kubernetes.io/instance: cert-manager
+---
+# ClusterIssuer for Let's Encrypt (Production)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # CUSTOMIZE: Replace with your email
+    email: admin@homelab.local
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      # HTTP-01 challenge (requires ingress)
+      - http01:
+          ingress:
+            class: nginx
+      # DNS-01 challenge (for wildcard certs - requires DNS provider)
+      # - dns01:
+      #     cloudflare:
+      #       email: admin@homelab.local
+      #       apiTokenSecretRef:
+      #         name: cloudflare-api-token
+      #         key: api-token
+---
+# ClusterIssuer for Let's Encrypt (Staging - for testing)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    email: admin@homelab.local
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# ClusterIssuer for Self-Signed (Air-gapped/Offline)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+# CA Issuer (for internal PKI)
+# First create a self-signed CA certificate, then use it to sign other certs
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: homelab-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: HomeLab Root CA
+  secretName: homelab-ca-secret
+  duration: 87600h  # 10 years
+  renewBefore: 8760h  # 1 year
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: homelab-ca-issuer
+spec:
+  ca:
+    secretName: homelab-ca-secret
+---
+# Example Certificate Request
+# Uncomment and customize for your services
+# apiVersion: cert-manager.io/v1
+# kind: Certificate
+# metadata:
+#   name: homelab-wildcard
+#   namespace: default
+# spec:
+#   secretName: homelab-wildcard-tls
+#   duration: 2160h  # 90 days
+#   renewBefore: 360h  # 15 days
+#   isCA: false
+#   privateKey:
+#     algorithm: RSA
+#     encoding: PKCS1
+#     size: 2048
+#   usages:
+#     - server auth
+#     - client auth
+#   dnsNames:
+#     - "*.homelab.local"
+#     - "homelab.local"
+#   issuerRef:
+#     name: homelab-ca-issuer
+#     kind: ClusterIssuer
+#     group: cert-manager.io

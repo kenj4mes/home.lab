@@ -1,0 +1,219 @@
+# ==============================================================================
+# 🤖 Ollama - Local LLM Backend for AI-Assisted Coding
+# ==============================================================================
+# Ollama runs large language models locally for private AI coding assistance.
+# Connect with VS Code Continue extension for Copilot-like experience.
+#
+# FEATURES:
+#   - 100% private - no code leaves your network
+#   - Multiple model support (CodeLlama, DeepSeek, Qwen)
+#   - OpenAI-compatible API
+#   - GPU acceleration (optional)
+#
+# RECOMMENDED MODELS FOR CODING:
+#   - qwen2.5-coder:7b (best balance)
+#   - deepseek-coder-v2:16b (more capable)
+#   - codellama:13b (Meta's coding model)
+#   - starcoder2:7b (code completion focused)
+#
+# VS CODE INTEGRATION:
+#   Install "Continue" extension, point to:
+#   http://ollama.ollama.svc.cluster.local:11434
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ollama
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/component: ai-coding
+---
+# Ollama Deployment (CPU - for most homelabs)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: ollama
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+              name: http
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+            - name: OLLAMA_KEEP_ALIVE
+              value: "24h"
+            - name: OLLAMA_NUM_PARALLEL
+              value: "2"
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2000m"
+            limits:
+              memory: "16Gi"
+              cpu: "8000m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 11434
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: ollama-data
+---
+# GPU-enabled Ollama (uncomment if you have NVIDIA GPU)
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: ollama-gpu
+#   namespace: ollama
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: ollama-gpu
+#   template:
+#     metadata:
+#       labels:
+#         app: ollama-gpu
+#     spec:
+#       runtimeClassName: nvidia  # Requires NVIDIA device plugin
+#       containers:
+#         - name: ollama
+#           image: ollama/ollama:latest
+#           ports:
+#             - containerPort: 11434
+#           resources:
+#             limits:
+#               nvidia.com/gpu: 1
+#           volumeMounts:
+#             - name: ollama-data
+#               mountPath: /root/.ollama
+#       volumes:
+#         - name: ollama-data
+#           persistentVolumeClaim:
+#             claimName: ollama-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-data
+  namespace: ollama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi  # Models can be large (7B = ~4GB, 70B = ~40GB)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: ollama
+spec:
+  selector:
+    app: ollama
+  ports:
+    - port: 11434
+      targetPort: 11434
+      name: http
+  type: ClusterIP
+---
+# Ingress for external access (optional)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ollama
+  namespace: ollama
+  annotations:
+    cert-manager.io/cluster-issuer: "homelab-ca-issuer"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "500m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - ollama.homelab.local
+      secretName: ollama-tls
+  rules:
+    - host: ollama.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ollama
+                port:
+                  number: 11434
+---
+# Model Pull Job - Run once to download coding models
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-pull-models
+  namespace: ollama
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: pull
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Ollama to be ready..."
+              sleep 30
+              echo "Pulling qwen2.5-coder:7b..."
+              curl -X POST http://ollama:11434/api/pull -d '{"name": "qwen2.5-coder:7b"}'
+              echo "Pulling deepseek-coder-v2:16b..."
+              curl -X POST http://ollama:11434/api/pull -d '{"name": "deepseek-coder-v2:16b"}'
+              echo "Models pulled successfully!"
+---
+# ServiceMonitor for Prometheus (optional)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ollama
+  namespace: ollama
+  labels:
+    app: ollama
+spec:
+  selector:
+    matchLabels:
+      app: ollama
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

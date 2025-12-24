@@ -50,7 +50,7 @@
 |---------|------|---------|----------------|
 | 10 | Management | IPMI, Switch, Router | Locked down |
 | 20 | Server/Lab | Compute nodes, VMs | Internal only |
-| 30 | User/Trusted | Personal devices | Internet + Lab |
+| 30 | User/Trusted | Trusted devices | Internet + Lab |
 | 40 | IoT/Untrusted | Smart devices | Internet only |
 | 50 | Storage | NFS/iSCSI traffic | Non-routable |
 
@@ -196,9 +196,51 @@
 | Identity | Keycloak | 23+ |
 | Secrets | Vault | 1.15+ |
 
+## Cybernetic Evolution (Experimental)
+
+The next phase of infrastructure evolution introduces **self-regulating systems** that observe, reason, and act autonomously. See [EXPERIMENTAL.md](EXPERIMENTAL.md) for details.
+
+### The Five Pillars
+
+| Pillar | Component | Function |
+|--------|-----------|----------|
+| 🧠 **Cognitive** | LangFlow | Agentic AI orchestration |
+| 💥 **Resilience** | Chaos Mesh | Fault injection testing |
+| ⚡ **Observability** | Kepler | eBPF energy monitoring |
+| 🏗️ **Platform** | Kratix | X-as-a-Service via Promises |
+| 💰 **Finance** | Rotki | Sovereign crypto analytics |
+
+### The Cybernetic Loop
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CYBERNETIC FEEDBACK LOOP                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐         │
+│   │ SENSE   │───▶│ ANALYZE │───▶│ DECIDE  │───▶│  ACT    │         │
+│   │ Kepler  │    │ Prom/   │    │LangFlow │    │ Kratix/ │         │
+│   │ (eBPF)  │    │ Rotki   │    │  (AI)   │    │ Chaos   │         │
+│   └─────────┘    └─────────┘    └─────────┘    └─────────┘         │
+│        │                                              │             │
+│        └──────────────── FEEDBACK ───────────────────┘             │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+This transforms the homelab from a **passive hosting platform** into an **active, self-governing organism** that:
+
+1. **Senses** its physical state (energy, resources, performance)
+2. **Analyzes** patterns and anomalies (AI + metrics)
+3. **Decides** on corrective actions (LLM reasoning)
+4. **Acts** to maintain equilibrium (platform automation, controlled chaos)
+
 ## References
 
 - [khuedoan/homelab](https://github.com/khuedoan/homelab) - Fully automated homelab
 - [kenmoini/homelab](https://github.com/kenmoini/homelab) - Red Hat ecosystem homelab
 - [CNCF Landscape](https://landscape.cncf.io/) - Cloud Native technologies
 - [AWS Well-Architected](https://aws.amazon.com/architecture/well-architected/) - Framework principles
+- [Chaos Mesh](https://chaos-mesh.org/) - CNCF chaos engineering
+- [Kepler Project](https://sustainable-computing.io/) - Kubernetes energy efficiency
+- [Kratix](https://kratix.io/) - Platform engineering framework

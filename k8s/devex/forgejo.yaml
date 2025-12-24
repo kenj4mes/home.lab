@@ -1,0 +1,343 @@
+# ==============================================================================
+# 🔧 Forgejo - Self-Hosted Git Forge with CI/CD (Gitea Fork)
+# ==============================================================================
+# Forgejo is a community-owned, MIT-licensed Git forge.
+# It's a hard fork of Gitea, committed to remaining fully open source.
+#
+# FEATURES:
+#   - Git repository hosting
+#   - Pull requests & code review
+#   - Forgejo Actions (GitHub Actions compatible CI/CD)
+#   - Container registry
+#   - Package registry (npm, PyPI, etc.)
+#   - Issue tracking
+#   - Wiki
+#
+# WHY FORGEJO OVER GITEA:
+#   - Community-owned (not corporate controlled)
+#   - MIT licensed forever
+#   - Active development focused on federation
+#
+# PREREQUISITES:
+#   - PostgreSQL database
+#   - Persistent storage for repositories
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forgejo
+  labels:
+    app.kubernetes.io/name: forgejo
+    app.kubernetes.io/component: git-forge
+---
+# PostgreSQL for Forgejo
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: forgejo-postgres
+  namespace: forgejo
+spec:
+  serviceName: forgejo-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: forgejo-postgres
+  template:
+    metadata:
+      labels:
+        app: forgejo-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: forgejo
+            - name: POSTGRES_USER
+              value: forgejo
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: forgejo-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo-postgres
+  namespace: forgejo
+spec:
+  selector:
+    app: forgejo-postgres
+  ports:
+    - port: 5432
+  clusterIP: None
+---
+# Forgejo Server
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: forgejo
+  namespace: forgejo
+spec:
+  serviceName: forgejo
+  replicas: 1
+  selector:
+    matchLabels:
+      app: forgejo
+  template:
+    metadata:
+      labels:
+        app: forgejo
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: init-config
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /data/gitea/conf
+              chown -R 1000:1000 /data
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      containers:
+        - name: forgejo
+          image: codeberg.org/forgejo/forgejo:8
+          ports:
+            - containerPort: 3000
+              name: http
+            - containerPort: 22
+              name: ssh
+          env:
+            - name: USER_UID
+              value: "1000"
+            - name: USER_GID
+              value: "1000"
+            - name: FORGEJO__database__DB_TYPE
+              value: "postgres"
+            - name: FORGEJO__database__HOST
+              value: "forgejo-postgres:5432"
+            - name: FORGEJO__database__NAME
+              value: "forgejo"
+            - name: FORGEJO__database__USER
+              value: "forgejo"
+            - name: FORGEJO__database__PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: forgejo-secrets
+                  key: postgres-password
+            - name: FORGEJO__server__DOMAIN
+              value: "git.homelab.local"
+            - name: FORGEJO__server__ROOT_URL
+              value: "https://git.homelab.local/"
+            - name: FORGEJO__server__SSH_DOMAIN
+              value: "git.homelab.local"
+            - name: FORGEJO__server__SSH_PORT
+              value: "22"
+            - name: FORGEJO__server__SSH_LISTEN_PORT
+              value: "22"
+            - name: FORGEJO__security__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: forgejo-secrets
+                  key: secret-key
+            - name: FORGEJO__security__INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: forgejo-secrets
+                  key: internal-token
+            # Actions (CI/CD) configuration
+            - name: FORGEJO__actions__ENABLED
+              value: "true"
+            - name: FORGEJO__actions__DEFAULT_ACTIONS_URL
+              value: "https://code.forgejo.org"
+            # Container Registry
+            - name: FORGEJO__packages__ENABLED
+              value: "true"
+            # Webhook for external integrations
+            - name: FORGEJO__webhook__ALLOWED_HOST_LIST
+              value: "*.homelab.local,*.svc.cluster.local"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo
+  namespace: forgejo
+spec:
+  selector:
+    app: forgejo
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+    - port: 22
+      targetPort: 22
+      name: ssh
+---
+# Forgejo Actions Runner (CI/CD)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgejo-runner
+  namespace: forgejo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: forgejo-runner
+  template:
+    metadata:
+      labels:
+        app: forgejo-runner
+    spec:
+      containers:
+        - name: runner
+          image: code.forgejo.org/forgejo/runner:3
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while ! wget -q --spider http://forgejo:3000/api/healthz; do
+                echo "Waiting for Forgejo..."
+                sleep 5
+              done
+              forgejo-runner daemon
+          env:
+            - name: FORGEJO_URL
+              value: "http://forgejo:3000"
+            - name: RUNNER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: forgejo-secrets
+                  key: runner-token
+            - name: RUNNER_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+---
+# Ingress for HTTP
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forgejo
+  namespace: forgejo
+  annotations:
+    cert-manager.io/cluster-issuer: "homelab-ca-issuer"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1g"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - git.homelab.local
+      secretName: forgejo-tls
+  rules:
+    - host: git.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgejo
+                port:
+                  number: 3000
+---
+# SSH LoadBalancer (for git clone via SSH)
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo-ssh
+  namespace: forgejo
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: "192.168.1.200"  # CUSTOMIZE: Your MetalLB IP
+spec:
+  selector:
+    app: forgejo
+  ports:
+    - port: 22
+      targetPort: 22
+      name: ssh
+  type: LoadBalancer
+---
+# Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: forgejo-secrets
+  namespace: forgejo
+type: Opaque
+stringData:
+  postgres-password: "CHANGEME_FORGEJO_DB_PASSWORD"
+  secret-key: "CHANGEME_SECRET_KEY_64_CHARS_MINIMUM_GENERATE_RANDOM"
+  internal-token: "CHANGEME_INTERNAL_TOKEN_64_CHARS_MINIMUM_RANDOM"
+  runner-token: "CHANGEME_RUNNER_REGISTRATION_TOKEN"

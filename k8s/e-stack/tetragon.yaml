@@ -1,0 +1,361 @@
+# ==============================================================================
+# 🛡️ Tetragon - eBPF Security Enforcement
+# ==============================================================================
+# Kernel-level security observability and enforcement
+# Blocks malicious syscalls BEFORE they execute (not just alerts)
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tetragon
+  labels:
+    app.kubernetes.io/name: tetragon
+    app.kubernetes.io/part-of: security
+
+---
+# ==============================================================================
+# Tetragon DaemonSet - Runs on every node
+# ==============================================================================
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tetragon
+  namespace: tetragon
+  labels:
+    app: tetragon
+spec:
+  selector:
+    matchLabels:
+      app: tetragon
+  template:
+    metadata:
+      labels:
+        app: tetragon
+    spec:
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      
+      serviceAccountName: tetragon
+      
+      # Tolerate all taints (security must run everywhere)
+      tolerations:
+        - operator: Exists
+      
+      # High priority
+      priorityClassName: system-node-critical
+      
+      containers:
+        - name: tetragon
+          image: quay.io/cilium/tetragon:v1.1.0
+          imagePullPolicy: IfNotPresent
+          
+          command:
+            - /usr/bin/tetragon
+          
+          args:
+            - "--config-dir=/etc/tetragon/tetragon.conf.d/"
+            - "--export-filename=/var/run/cilium/tetragon/tetragon.log"
+            - "--export-file-max-size-mb=10"
+            - "--export-file-rotation-interval=5m"
+            - "--export-file-max-backups=5"
+            - "--export-rate-limit=-1"
+            - "--enable-k8s-api"
+            - "--enable-process-cred"
+            - "--enable-process-ns"
+            - "--btf=/sys/kernel/btf/vmlinux"
+          
+          securityContext:
+            privileged: true
+          
+          ports:
+            - containerPort: 2112
+              name: metrics
+              protocol: TCP
+            - containerPort: 54321
+              name: grpc
+              protocol: TCP
+          
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          
+          volumeMounts:
+            # BTF data for eBPF
+            - name: btf
+              mountPath: /sys/kernel/btf/vmlinux
+              readOnly: true
+            # BPF filesystem
+            - name: bpf-maps
+              mountPath: /sys/fs/bpf
+            - name: cilium-bpf-maps
+              mountPath: /sys/fs/bpf/tcx
+              mountPropagation: HostToContainer
+            # Export directory
+            - name: export-dir
+              mountPath: /var/run/cilium/tetragon
+            # Config
+            - name: config
+              mountPath: /etc/tetragon/tetragon.conf.d/
+            # Policy
+            - name: policies
+              mountPath: /etc/tetragon/policies
+          
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 2112
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+        
+        # Export container (optional - for log shipping)
+        - name: export-stdout
+          image: quay.io/cilium/hubble-export-stdout:v1.0.4
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/usr/bin/tetragon-compat"
+          args:
+            - "tail"
+            - "--follow"
+            - "/var/run/cilium/tetragon/tetragon.log"
+          volumeMounts:
+            - name: export-dir
+              mountPath: /var/run/cilium/tetragon
+              readOnly: true
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      
+      volumes:
+        - name: btf
+          hostPath:
+            path: /sys/kernel/btf/vmlinux
+            type: File
+        - name: bpf-maps
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+        - name: cilium-bpf-maps
+          hostPath:
+            path: /sys/fs/bpf/tcx
+            type: DirectoryOrCreate
+        - name: export-dir
+          hostPath:
+            path: /var/run/cilium/tetragon
+            type: DirectoryOrCreate
+        - name: config
+          configMap:
+            name: tetragon-config
+        - name: policies
+          configMap:
+            name: tetragon-policies
+
+---
+# ==============================================================================
+# Configuration
+# ==============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tetragon-config
+  namespace: tetragon
+data:
+  tetragon.yaml: |
+    # Enable Kubernetes enrichment
+    enable-k8s-api: true
+    
+    # Export configuration
+    export-file-max-size-mb: 10
+    export-file-rotation-interval: 5m
+    export-file-max-backups: 5
+    
+    # Enable process credentials tracking
+    enable-process-cred: true
+    
+    # Enable namespace tracking
+    enable-process-ns: true
+
+---
+# ==============================================================================
+# Security Policies
+# ==============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tetragon-policies
+  namespace: tetragon
+data:
+  # Detect reverse shells
+  reverse-shell.yaml: |
+    apiVersion: cilium.io/v1alpha1
+    kind: TracingPolicy
+    metadata:
+      name: "detect-reverse-shell"
+    spec:
+      kprobes:
+      - call: "tcp_connect"
+        syscall: false
+        args:
+        - index: 0
+          type: "sock"
+        selectors:
+        - matchBinaries:
+          - operator: "In"
+            values:
+            - "/bin/bash"
+            - "/bin/sh"
+            - "/usr/bin/bash"
+            - "/usr/bin/sh"
+            - "/bin/nc"
+            - "/usr/bin/nc"
+  
+  # Detect sensitive file access
+  sensitive-files.yaml: |
+    apiVersion: cilium.io/v1alpha1
+    kind: TracingPolicy
+    metadata:
+      name: "detect-sensitive-file-access"
+    spec:
+      kprobes:
+      - call: "fd_install"
+        syscall: false
+        args:
+        - index: 0
+          type: "int"
+        - index: 1
+          type: "file"
+        selectors:
+        - matchArgs:
+          - index: 1
+            operator: "Prefix"
+            values:
+            - "/etc/shadow"
+            - "/etc/passwd"
+            - "/etc/sudoers"
+            - "/root/.ssh"
+            - "/home/*/.ssh/id_rsa"
+  
+  # Block container escapes
+  container-escape.yaml: |
+    apiVersion: cilium.io/v1alpha1
+    kind: TracingPolicy
+    metadata:
+      name: "block-container-escape"
+    spec:
+      kprobes:
+      - call: "security_file_open"
+        syscall: false
+        args:
+        - index: 0
+          type: "file"
+        selectors:
+        - matchArgs:
+          - index: 0
+            operator: "Prefix"
+            values:
+            - "/proc/*/ns"
+            - "/proc/*/root"
+          matchNamespaces:
+          - namespace: Pid
+            operator: NotIn
+            values:
+            - "host_ns"
+        matchActions:
+        - action: Sigkill  # Kill process attempting escape
+
+---
+# ==============================================================================
+# Service Account and RBAC
+# ==============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tetragon
+  namespace: tetragon
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tetragon
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "namespaces", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["cilium.io"]
+    resources: ["tracingpolicies", "tracingpoliciesnamespaced"]
+    verbs: ["*"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tetragon
+subjects:
+  - kind: ServiceAccount
+    name: tetragon
+    namespace: tetragon
+roleRef:
+  kind: ClusterRole
+  name: tetragon
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ==============================================================================
+# Service for Metrics/gRPC
+# ==============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: tetragon
+  namespace: tetragon
+  labels:
+    app: tetragon
+spec:
+  type: ClusterIP
+  selector:
+    app: tetragon
+  ports:
+    - name: metrics
+      port: 2112
+      targetPort: 2112
+    - name: grpc
+      port: 54321
+      targetPort: 54321
+
+---
+# ==============================================================================
+# ServiceMonitor for Prometheus
+# ==============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tetragon
+  namespace: tetragon
+  labels:
+    app: tetragon
+spec:
+  selector:
+    matchLabels:
+      app: tetragon
+  endpoints:
+    - port: metrics
+      interval: 30s

@@ -26,7 +26,8 @@ NC='\033[0m'
 # Configuration
 TIMESTAMP=$(date +%Y-%m-%d_%H%M)
 RETENTION_DAYS=30
-POOLS=("FlashBang" "Tumadre")
+# Pool names - customize these to match your setup
+POOLS=("fast-pool" "bulk-pool")
 
 echo -e "${BLUE}"
 echo "╔══════════════════════════════════════════════════════════════════════════════╗"

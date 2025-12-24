@@ -14,23 +14,34 @@ Get HomeLab running in 10 minutes.
 === "Linux/macOS"
 
     ```bash
-    curl -sSL https://raw.githubusercontent.com/kenj4mes/home.lab/main/bootstrap.sh | bash
+    # CUSTOMIZE: Replace <your-github-username> with your GitHub username
+    curl -sSL https://raw.githubusercontent.com/<your-github-username>/home.lab/main/bootstrap.sh | bash
     ```
 
 === "Windows (PowerShell)"
 
     ```powershell
-    irm https://raw.githubusercontent.com/kenj4mes/home.lab/main/install/setup-windows.ps1 | iex
+    # CUSTOMIZE: Replace <your-github-username> with your GitHub username
+    irm https://raw.githubusercontent.com/<your-github-username>/home.lab/main/install/setup-windows.ps1 | iex
     ```
 
 ## Manual Installation
 
-### Step 1: Clone Repository
+### Step 1: Clone Repository (with LFS Data)
 
 ```bash
-git clone https://github.com/kenj4mes/home.lab.git
+# Install Git LFS if not already installed
+git lfs install
+
+# CUSTOMIZE: Replace <your-github-username> with your GitHub username
+# This includes ~29GB of data via LFS (ZIM files, AI models, Superchain)
+git clone https://github.com/<your-github-username>/home.lab.git
 cd home.lab
 ```
+
+!!! info "Git LFS"
+    The repository includes ~29GB of offline data tracked via Git LFS.
+    ZIM encyclopedias, SDXL models, and Superchain repos download automatically.
 
 ### Step 2: Configure Environment
 
@@ -42,15 +53,22 @@ cp CREDENTIALS.example.txt .env
 !!! warning "Security"
     Change ALL `CHANGEME_*` placeholders before starting services!
 
-### Step 3: Download Offline Data
+### Step 3: Download Optional Extras
 
 ```bash
-# Download AI models (~26GB)
+# Core data (ZIM + SDXL + Superchain) already included via Git LFS!
+
+# Optional: Download Ollama LLM models (~26GB)
 ./scripts/download-models.sh
 
-# Download Kiwix ZIMs (~22GB)
-./scripts/download-all.sh
+# Optional: Download Creative AI models (Bark, MusicGen)
+./scripts/download-all.sh --creative
 ```
+
+!!! success "Already Included via Git LFS"
+    ✅ Kiwix ZIM files (~22GB) - Wikipedia, StackOverflow offline  
+    ✅ SDXL + Whisper models (~6.8GB)  
+    ✅ Superchain repositories (~1GB)
 
 ### Step 4: Start Services
 

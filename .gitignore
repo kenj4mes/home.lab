@@ -87,26 +87,24 @@ terraform/.terraform.lock.hcl
 docker-compose.override.yml
 
 # ------------------------------------------------------------------------------
-# Downloaded Content (Large Files)
+# Downloaded Content (Large Files) - Handled by Git LFS
 # ------------------------------------------------------------------------------
-*.zim
 *.iso
 *.qcow2
 *.ova
 *.vmdk
 
 # ------------------------------------------------------------------------------
-# Large Data Directories (Downloaded Assets)
+# Large Data Directories - Empty folders only
 # ------------------------------------------------------------------------------
+# LFS tracks: *.zim, *.safetensors, *.bin, *.gguf, *.ckpt, *.pth, *.pt, *.onnx
 data/ollama/
-data/models/
-data/zim/
 data/volumes/
 
 # ------------------------------------------------------------------------------
-# Superchain Cloned Repositories
+# Superchain - Tracked via Git LFS for large binaries
 # ------------------------------------------------------------------------------
-superchain/
+# Large binary files (*.dll, *.so, *.dylib, *.era1, *.gob) handled by LFS
 
 # ------------------------------------------------------------------------------
 # Backup Files
@@ -114,7 +112,10 @@ superchain/
 *.bak
 *.backup
 *.old
+*.orig
+*.tmp
 *~
+profile_backup.txt
 
 # ------------------------------------------------------------------------------
 # Local Testing
@@ -123,3 +124,11 @@ superchain/
 .local/
 tmp/
 temp/
+
+
+# Cloned superchain repositories (external)
+superchain/
+
+# Large data files (>2GB) - download separately
+data/models/
+data/zim/

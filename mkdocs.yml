@@ -4,15 +4,19 @@
 # Build: mkdocs build
 # Serve: mkdocs serve
 # Deploy: mkdocs gh-deploy
+#
+# ⚠️  CUSTOMIZE: Replace <your-github-username> with your GitHub username
 # ==============================================================================
 
 site_name: HomeLab Documentation
 site_description: Self-hosted infrastructure platform documentation
 site_author: HomeLab Team
-site_url: https://kenj4mes.github.io/home.lab
+# CUSTOMIZE: Update with your GitHub Pages URL
+site_url: https://<your-github-username>.github.io/home.lab
 
-repo_name: kenj4mes/home.lab
-repo_url: https://github.com/kenj4mes/home.lab
+# CUSTOMIZE: Update with your GitHub repository
+repo_name: <your-github-username>/home.lab
+repo_url: https://github.com/<your-github-username>/home.lab
 
 theme:
   name: material
@@ -75,8 +79,9 @@ markdown_extensions:
 
 extra:
   social:
+    # CUSTOMIZE: Update with your GitHub username
     - icon: fontawesome/brands/github
-      link: https://github.com/kenj4mes/home.lab
+      link: https://github.com/<your-github-username>/home.lab
 
 nav:
   - Home: index.md

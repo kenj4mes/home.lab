@@ -1,0 +1,399 @@
+# ==============================================================================
+# 📊 RSS & Content Aggregation - Kubernetes
+# ==============================================================================
+# Content aggregation and bookmarking tools
+# - FreshRSS (Feed reader)
+# - Shaarli (Bookmark manager)
+# - Wallabag (Read-it-later)
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aggregators
+  labels:
+    app.kubernetes.io/name: aggregators
+    app.kubernetes.io/part-of: social-stack
+
+---
+# ==============================================================================
+# FreshRSS - Feed Aggregator
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: freshrss-data-pvc
+  namespace: aggregators
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freshrss
+  namespace: aggregators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: freshrss
+  template:
+    metadata:
+      labels:
+        app: freshrss
+    spec:
+      containers:
+        - name: freshrss
+          image: freshrss/freshrss:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: TZ
+              value: "UTC"
+            - name: CRON_MIN
+              value: "*/15"
+            - name: TRUSTED_PROXY
+              value: "10.0.0.0/8"
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/FreshRSS/data
+            - name: extensions
+              mountPath: /var/www/FreshRSS/extensions
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: freshrss-data-pvc
+        - name: extensions
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: freshrss
+  namespace: aggregators
+spec:
+  selector:
+    app: freshrss
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+# ==============================================================================
+# Shaarli - Personal Bookmarks
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shaarli-data-pvc
+  namespace: aggregators
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shaarli
+  namespace: aggregators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shaarli
+  template:
+    metadata:
+      labels:
+        app: shaarli
+    spec:
+      containers:
+        - name: shaarli
+          image: ghcr.io/shaarli/shaarli:latest
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/shaarli/data
+            - name: cache
+              mountPath: /var/www/shaarli/cache
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: shaarli-data-pvc
+        - name: cache
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shaarli
+  namespace: aggregators
+spec:
+  selector:
+    app: shaarli
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+# ==============================================================================
+# Wallabag - Read-it-Later
+# ==============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wallabag-secrets
+  namespace: aggregators
+type: Opaque
+stringData:
+  postgres-password: "CHANGEME_WALLABAG_DB_PASSWORD"
+  secret: "CHANGEME_WALLABAG_SECRET_KEY"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wallabag-postgres-pvc
+  namespace: aggregators
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallabag-postgres
+  namespace: aggregators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wallabag-postgres
+  template:
+    metadata:
+      labels:
+        app: wallabag-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "wallabag"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallabag-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              value: "wallabag"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "300m"
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: wallabag-postgres-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wallabag-postgres
+  namespace: aggregators
+spec:
+  selector:
+    app: wallabag-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wallabag-data-pvc
+  namespace: aggregators
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallabag
+  namespace: aggregators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wallabag
+  template:
+    metadata:
+      labels:
+        app: wallabag
+    spec:
+      containers:
+        - name: wallabag
+          image: wallabag/wallabag:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: SYMFONY__ENV__DOMAIN_NAME
+              value: "https://wallabag.homelab.local"
+            - name: SYMFONY__ENV__DATABASE_DRIVER
+              value: "pdo_pgsql"
+            - name: SYMFONY__ENV__DATABASE_HOST
+              value: "wallabag-postgres"
+            - name: SYMFONY__ENV__DATABASE_PORT
+              value: "5432"
+            - name: SYMFONY__ENV__DATABASE_NAME
+              value: "wallabag"
+            - name: SYMFONY__ENV__DATABASE_USER
+              value: "wallabag"
+            - name: SYMFONY__ENV__DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallabag-secrets
+                  key: postgres-password
+            - name: SYMFONY__ENV__SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wallabag-secrets
+                  key: secret
+            - name: SYMFONY__ENV__FOSUSER_REGISTRATION
+              value: "false"
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/wallabag/data
+            - name: images
+              mountPath: /var/www/wallabag/web/assets/images
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: wallabag-data-pvc
+        - name: images
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wallabag
+  namespace: aggregators
+spec:
+  selector:
+    app: wallabag
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+# ==============================================================================
+# Ingresses
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aggregators-ingress
+  namespace: aggregators
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rss.homelab.local
+        - links.homelab.local
+        - wallabag.homelab.local
+      secretName: aggregators-tls
+  rules:
+    - host: rss.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: freshrss
+                port:
+                  number: 80
+    - host: links.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shaarli
+                port:
+                  number: 80
+    - host: wallabag.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wallabag
+                port:
+                  number: 80

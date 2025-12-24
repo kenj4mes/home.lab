@@ -38,8 +38,7 @@ Before deploying HomeLab, ensure your system meets these requirements.
 |----------|---------|---------|
 | **Docker** | 24.x+ | Container runtime |
 | **Docker Compose** | 2.20+ | Service orchestration |
-| **Git** | 2.x+ | Repository management |
-
+| **Git** | 2.x+ | Repository management || **Git LFS** | 3.x+ | Large file storage (models, ZIMs) |
 ### Optional
 
 | Software | Version | Purpose |
@@ -91,14 +90,15 @@ sudo ufw allow 80,443,3000,8096,9090,11434/tcp
 
 ## Storage Requirements
 
-### Data Downloads
+### Data Storage
 
-| Data Set | Size | Required For |
-|----------|------|--------------|
-| Ollama Models | ~26 GB | AI/LLM functionality |
-| Kiwix ZIMs | ~22 GB | Offline knowledge |
-| Creative Models | ~50 GB | Image/audio generation |
-| Superchain Repos | ~1 GB | Blockchain development |
+| Data Set | Size | Status |
+|----------|------|--------|
+| **Kiwix ZIMs** | ~22 GB | ✅ Included via Git LFS |
+| **SDXL + Whisper** | ~6.8 GB | ✅ Included via Git LFS |
+| **Superchain Repos** | ~1 GB | ✅ Included via Git LFS |
+| Ollama Models | ~26 GB | Optional download |
+| Creative Models | ~50 GB | Optional download |
 
 ### Persistent Storage
 
@@ -112,6 +112,7 @@ sudo ufw allow 80,443,3000,8096,9090,11434/tcp
 ## Pre-flight Checklist
 
 - [ ] Docker and Docker Compose installed
+- [ ] Git LFS installed (`git lfs install`)
 - [ ] Sufficient disk space (100GB+ free)
 - [ ] Network ports available
 - [ ] Git configured with SSH keys (optional)

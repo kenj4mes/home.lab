@@ -78,6 +78,11 @@ inhibit_rules:
     equal: ['alertname', 'namespace']
 
 # Receivers
+# NOTE: Webhook URLs injected via External Secrets from Vault
+# See k8s/security/external-secrets.yaml for configuration
+# 
+# For Docker Compose: Create secrets files manually:
+#   echo "https://discord.com/api/webhooks/..." > /run/secrets/discord-webhook
 receivers:
   # Null receiver for silencing
   - name: 'null'
@@ -85,7 +90,7 @@ receivers:
   # Discord webhook for critical alerts
   - name: 'discord-critical'
     discord_configs:
-      - webhook_url: 'CHANGEME_DISCORD_WEBHOOK_URL'
+      - webhook_url_file: '/etc/alertmanager/secrets/discord-webhook'
         title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
         message: |
           {{ range .Alerts }}
@@ -99,7 +104,7 @@ receivers:
   # Discord webhook for warnings
   - name: 'discord-warnings'
     discord_configs:
-      - webhook_url: 'CHANGEME_DISCORD_WEBHOOK_URL'
+      - webhook_url_file: '/etc/alertmanager/secrets/discord-webhook'
         title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
         message: |
           {{ range .Alerts }}
@@ -110,19 +115,19 @@ receivers:
   # Discord webhook for info
   - name: 'discord-info'
     discord_configs:
-      - webhook_url: 'CHANGEME_DISCORD_WEBHOOK_URL'
+      - webhook_url_file: '/etc/alertmanager/secrets/discord-webhook'
         title: 'ℹ️ Info: {{ .GroupLabels.alertname }}'
         message: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
   
-  # Slack alternative
+  # Slack alternative (uncomment and configure)
   # - name: 'slack'
   #   slack_configs:
-  #     - api_url: 'CHANGEME_SLACK_WEBHOOK_URL'
+  #     - api_url_file: '/etc/alertmanager/secrets/slack-webhook'
   #       channel: '#alerts'
   #       send_resolved: true
   
-  # PagerDuty for on-call
+  # PagerDuty for on-call (uncomment and configure)
   # - name: 'pagerduty'
   #   pagerduty_configs:
-  #     - service_key: 'CHANGEME_PAGERDUTY_KEY'
+  #     - service_key_file: '/etc/alertmanager/secrets/pagerduty-key'
   #       severity: 'critical'

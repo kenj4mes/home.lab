@@ -1,0 +1,129 @@
+# ==============================================================================
+# 🚀 SpinKube - WebAssembly on Kubernetes
+# ==============================================================================
+# Enables serverless WASM workloads with millisecond cold-starts
+# Components: cert-manager, runtime-class-manager (kwasm), spin-operator
+#
+# Installation Order:
+# 1. cert-manager (TLS for webhooks)
+# 2. runtime-class-manager (installs containerd shim)
+# 3. spin-operator (SpinApp CRD)
+# ==============================================================================
+
+# ==============================================================================
+# STEP 1: Cert-Manager (Pre-requisite)
+# Already in ../infrastructure/cert-manager.yaml
+# ==============================================================================
+
+---
+# ==============================================================================
+# STEP 2: Runtime Class Manager Namespace
+# ==============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kwasm
+  labels:
+    app.kubernetes.io/name: kwasm
+    app.kubernetes.io/part-of: spinkube
+
+---
+# ==============================================================================
+# STEP 3: Spin Operator Namespace
+# ==============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spin-operator
+  labels:
+    app.kubernetes.io/name: spin-operator
+    app.kubernetes.io/part-of: spinkube
+
+---
+# ==============================================================================
+# STEP 4: RuntimeClass for WASM workloads
+# ==============================================================================
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: wasmtime-spin-v2
+handler: spin
+scheduling:
+  nodeSelector:
+    kwasm.sh/kwasm-provisioned: "true"
+
+---
+# ==============================================================================
+# STEP 5: Spin Shim Executor
+# Tells the operator which RuntimeClass to use
+# ==============================================================================
+apiVersion: core.spinoperator.dev/v1alpha1
+kind: SpinAppExecutor
+metadata:
+  name: containerd-shim-spin
+  namespace: spin-operator
+spec:
+  createDeployment: true
+  deploymentConfig:
+    runtimeClassName: wasmtime-spin-v2
+    installDefaultCACerts: true
+
+---
+# ==============================================================================
+# Example SpinApp - Hello World WASM
+# ==============================================================================
+apiVersion: core.spinoperator.dev/v1alpha1
+kind: SpinApp
+metadata:
+  name: hello-spin
+  namespace: default
+spec:
+  # Pre-built Spin app from registry
+  image: "ghcr.io/spinkube/spin-operator/hello-world:latest"
+  replicas: 1
+  executor: containerd-shim-spin
+  # Scale to zero when idle (requires KEDA)
+  # enableAutoscaling: true
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-spin
+  namespace: default
+spec:
+  selector:
+    core.spinoperator.dev/app-name: hello-spin
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+# ==============================================================================
+# Ingress for WASM apps
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spin-apps-ingress
+  namespace: default
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - wasm.homelab.local
+      secretName: spin-apps-tls
+  rules:
+    - host: wasm.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello-spin
+                port:
+                  number: 80

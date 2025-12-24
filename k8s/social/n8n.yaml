@@ -1,0 +1,340 @@
+# ==============================================================================
+# 🤖 n8n Workflow Automation - Kubernetes
+# ==============================================================================
+# Self-hosted workflow automation for social media bots
+# Connects to Twitter/X, Reddit, Farcaster, YouTube, and more
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: n8n
+  labels:
+    app.kubernetes.io/name: n8n
+    app.kubernetes.io/part-of: social-stack
+
+---
+# ==============================================================================
+# Secrets
+# ==============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: n8n-secrets
+  namespace: n8n
+type: Opaque
+stringData:
+  # n8n Core
+  encryption-key: "CHANGEME_N8N_ENCRYPTION_KEY_32_CHARS"
+  basic-auth-password: "CHANGEME_N8N_PASSWORD"
+  
+  # Twitter/X API (https://developer.twitter.com/)
+  twitter-api-key: "CHANGEME_TWITTER_API_KEY"
+  twitter-api-secret: "CHANGEME_TWITTER_API_SECRET"
+  twitter-access-token: "CHANGEME_TWITTER_ACCESS_TOKEN"
+  twitter-access-secret: "CHANGEME_TWITTER_ACCESS_SECRET"
+  twitter-bearer-token: "CHANGEME_TWITTER_BEARER_TOKEN"
+  
+  # Reddit API (https://www.reddit.com/prefs/apps)
+  reddit-client-id: "CHANGEME_REDDIT_CLIENT_ID"
+  reddit-client-secret: "CHANGEME_REDDIT_CLIENT_SECRET"
+  reddit-username: "CHANGEME_REDDIT_USERNAME"
+  reddit-password: "CHANGEME_REDDIT_PASSWORD"
+  
+  # Farcaster (your account mnemonic)
+  farcaster-mnemonic: "CHANGEME_YOUR_FARCASTER_MNEMONIC"
+  
+  # YouTube Data API (https://console.cloud.google.com/)
+  youtube-api-key: "CHANGEME_YOUTUBE_API_KEY"
+  
+  # Telegram Bot (https://t.me/BotFather)
+  telegram-bot-token: "CHANGEME_TELEGRAM_BOT_TOKEN"
+  
+  # Discord Webhook
+  discord-webhook-url: "CHANGEME_DISCORD_WEBHOOK_URL"
+
+---
+# ==============================================================================
+# PostgreSQL for n8n
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: n8n-postgres-pvc
+  namespace: n8n
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n-postgres
+  namespace: n8n
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: n8n-postgres
+  template:
+    metadata:
+      labels:
+        app: n8n-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "n8n"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: basic-auth-password
+            - name: POSTGRES_DB
+              value: "n8n"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: n8n-postgres-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n-postgres
+  namespace: n8n
+spec:
+  selector:
+    app: n8n-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+# ==============================================================================
+# n8n Application
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: n8n-data-pvc
+  namespace: n8n
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n
+  namespace: n8n
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: n8n
+  template:
+    metadata:
+      labels:
+        app: n8n
+    spec:
+      containers:
+        - name: n8n
+          image: n8nio/n8n:latest
+          ports:
+            - containerPort: 5678
+          env:
+            # Core settings
+            - name: N8N_HOST
+              value: "n8n.homelab.local"
+            - name: N8N_PORT
+              value: "5678"
+            - name: N8N_PROTOCOL
+              value: "https"
+            - name: WEBHOOK_URL
+              value: "https://n8n.homelab.local/"
+            - name: GENERIC_TIMEZONE
+              value: "UTC"
+            
+            # Security
+            - name: N8N_BASIC_AUTH_ACTIVE
+              value: "true"
+            - name: N8N_BASIC_AUTH_USER
+              value: "admin"
+            - name: N8N_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: basic-auth-password
+            - name: N8N_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: encryption-key
+            
+            # Database
+            - name: DB_TYPE
+              value: "postgresdb"
+            - name: DB_POSTGRESDB_HOST
+              value: "n8n-postgres"
+            - name: DB_POSTGRESDB_PORT
+              value: "5432"
+            - name: DB_POSTGRESDB_DATABASE
+              value: "n8n"
+            - name: DB_POSTGRESDB_USER
+              value: "n8n"
+            - name: DB_POSTGRESDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: basic-auth-password
+            
+            # Social API credentials (available in workflows)
+            - name: TWITTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: twitter-api-key
+            - name: TWITTER_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: twitter-api-secret
+            - name: TWITTER_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: twitter-access-token
+            - name: TWITTER_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: twitter-access-secret
+            - name: REDDIT_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: reddit-client-id
+            - name: REDDIT_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: reddit-client-secret
+            - name: FARCASTER_MNEMONIC
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: farcaster-mnemonic
+            - name: YOUTUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: youtube-api-key
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: telegram-bot-token
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: discord-webhook-url
+          
+          volumeMounts:
+            - name: n8n-data
+              mountPath: /home/node/.n8n
+          
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 5678
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5678
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      
+      volumes:
+        - name: n8n-data
+          persistentVolumeClaim:
+            claimName: n8n-data-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n
+  namespace: n8n
+spec:
+  selector:
+    app: n8n
+  ports:
+    - port: 5678
+      targetPort: 5678
+
+---
+# ==============================================================================
+# Ingress
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: n8n-ingress
+  namespace: n8n
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - n8n.homelab.local
+      secretName: n8n-tls
+  rules:
+    - host: n8n.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: n8n
+                port:
+                  number: 5678

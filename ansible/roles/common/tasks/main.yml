@@ -1,0 +1,157 @@
+---
+# ==============================================================================
+# 🔧 Common Role - Base System Configuration
+# ==============================================================================
+# Applied to all hosts for consistent baseline
+# ==============================================================================
+
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  tags: [hostname]
+
+- name: Update /etc/hosts
+  ansible.builtin.template:
+    src: hosts.j2
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [hostname]
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ homelab_timezone | default('UTC') }}"
+  tags: [timezone]
+
+- name: Configure NTP (chronyd)
+  block:
+    - name: Install chrony
+      ansible.builtin.package:
+        name: chrony
+        state: present
+
+    - name: Configure chrony
+      ansible.builtin.template:
+        src: chrony.conf.j2
+        dest: /etc/chrony.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart chronyd
+
+    - name: Enable and start chronyd
+      ansible.builtin.systemd:
+        name: chronyd
+        enabled: true
+        state: started
+  tags: [ntp]
+
+# Package Management
+- name: Update package cache (Debian/Ubuntu)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: [packages]
+
+- name: Update package cache (RHEL/Fedora)
+  ansible.builtin.dnf:
+    update_cache: true
+  when: ansible_os_family == "RedHat"
+  tags: [packages]
+
+- name: Install common packages (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: "{{ common_packages_debian }}"
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [packages]
+
+- name: Install common packages (RHEL/Fedora)
+  ansible.builtin.dnf:
+    name: "{{ common_packages_redhat }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [packages]
+
+# Security Baseline
+- name: Configure SSH
+  ansible.builtin.template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+    validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  tags: [security, ssh]
+
+- name: Configure firewall (firewalld)
+  block:
+    - name: Ensure firewalld is installed
+      ansible.builtin.package:
+        name: firewalld
+        state: present
+
+    - name: Enable and start firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        enabled: true
+        state: started
+
+    - name: Allow SSH through firewall
+      ansible.posix.firewalld:
+        service: ssh
+        permanent: true
+        state: enabled
+      notify: Reload firewalld
+  when: ansible_os_family == "RedHat"
+  tags: [security, firewall]
+
+- name: Configure firewall (ufw)
+  block:
+    - name: Ensure ufw is installed
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+
+    - name: Allow SSH through firewall
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Enable ufw
+      community.general.ufw:
+        state: enabled
+  when: ansible_os_family == "Debian"
+  tags: [security, firewall]
+
+# User Management
+- name: Create ansible user
+  ansible.builtin.user:
+    name: ansible
+    groups: "{{ 'wheel' if ansible_os_family == 'RedHat' else 'sudo' }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+  tags: [users]
+
+- name: Add ansible user to sudoers
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/ansible
+    line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+    create: true
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  tags: [users]
+
+# System Tuning
+- name: Configure sysctl parameters
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-homelab.conf
+    reload: true
+  loop: "{{ sysctl_params | dict2items }}"
+  tags: [tuning]

@@ -113,9 +113,9 @@ PGID=1000
 # ------------------------------------------------------------------------------
 # STORAGE PATHS
 # ------------------------------------------------------------------------------
-# Linux defaults (change for your system)
-CONFIG_PATH=/srv/FlashBang
-MEDIA_PATH=/srv/Tumadre
+# Linux defaults (customize for your environment)
+CONFIG_PATH=/srv/homelab/config
+MEDIA_PATH=/srv/homelab/data
 
 # Windows alternatives (uncomment if using Docker Desktop on Windows)
 # CONFIG_PATH=C:/HomeLab/config

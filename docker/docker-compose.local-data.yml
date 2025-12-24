@@ -2,19 +2,23 @@
 # HOMELAB DATA VOLUMES - Local Path Configuration
 # ==============================================================================
 # 
-# This file provides local bind mount overrides for all HomeLab services.
+# This file provides local bind mount overrides for HomeLab services.
 # Using local paths makes the entire installation portable and backup-friendly.
 #
-# Usage:
-#   docker compose -f docker-compose.windows.yml -f docker-compose.local-data.yml up -d
+# ⚠️ OVERLAY FILE: Must be used with a base compose file!
 #
+# Usage Examples:
+#   docker compose -f docker-compose.yml -f docker-compose.local-data.yml up -d
+#   docker compose -f docker-compose.base.yml -f docker-compose.local-data.yml up -d
+#
+# NOTE: Only override services that exist in the base file you're combining with.
 # ==============================================================================
 
 name: homelab
 
 services:
   # ==========================================================================
-  # CORE SERVICES
+  # CORE SERVICES (docker-compose.yml / docker-compose.windows.yml)
   # ==========================================================================
   
   jellyfin:
@@ -40,14 +44,6 @@ services:
     volumes:
       - ../data/volumes/qbittorrent:/config
       - ${DOWNLOADS_PATH:-../data/downloads}:/downloads
-
-  # ==========================================================================
-  # AI SERVICES
-  # ==========================================================================
-  
-  ollama:
-    volumes:
-      - ../data/ollama:/root/.ollama
 
   open-webui:
     volumes:

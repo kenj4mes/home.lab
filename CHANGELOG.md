@@ -7,6 +7,175 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Git LFS Data Inclusion 📦
+- **Git LFS Configuration** - Large files now tracked and included in repository
+  - `.gitattributes` with 13 tracked extensions (*.zim, *.safetensors, *.gguf, etc.)
+  - ~29 GB of data files now clone with the repository
+  
+- **Included Data (via Git LFS)**
+  - `data/zim/` - Kiwix offline encyclopedias (~22 GB)
+    - Wikipedia, Wiktionary, WikiHow, Stack Overflow offline
+  - `data/models/` - AI models (~6.8 GB)
+    - SDXL base + VAE, Whisper large-v3
+  - `superchain/` - Blockchain development repositories (~1 GB)
+    - ethereum-optimism/op-geth, paradigmxyz/reth, etc.
+
+#### Hugging Face Ecosystem 🤗
+- **Install Scripts**
+  - `scripts/install-huggingface.ps1` - Windows PowerShell installer
+  - `scripts/install-huggingface.sh` - Linux/macOS installer
+  - Installs: transformers, diffusers, accelerate, huggingface_hub, safetensors
+  - Supports: minimal, standard, full installation profiles
+  - Configurable cache directory and offline mode
+
+- **Install Wizard Integration**
+  - Added "HuggingFace" component to install wizard
+  - Auto-installs Python dependencies for Creative AI
+
+- **Documentation Updates**
+  - Updated README.md with "Included Data (Git LFS)" section
+  - Updated DATA_SOURCES.md with HuggingFace tooling section
+  - Updated portable installation instructions for LFS workflow
+
+### Changed
+- `data/` and `superchain/` removed from .gitignore (now LFS-tracked)
+- Kept `data/ollama/` and `data/volumes/` ignored (runtime data)
+- Moved CREDENTIALS.example.txt to templates/ folder
+
+### Removed
+- 31 empty directories (orphaned from cloned repos)
+- Python __pycache__ folders
+- Temporary backup files
+
+## [2.3.0] - 2025-01-20
+
+### Added
+
+#### GitHub Profile Analytics - Expert-Tier S+ Configuration 📊
+Complete GitHub profile optimization system for achieving S+ rank status:
+
+- **GitHub Actions Workflows** (`.github/workflows/`)
+  - `profile-metrics.yml` - Full lowlighter/metrics with 8 generation steps
+    - Header card, isocalendar full-year, languages indepth mode
+    - Habits analysis (facts/charts), achievements (S+ rank)
+    - Stars distribution, WakaTime integration, full dashboard
+  - `profile-snake.yml` - Platane/snk contribution animation
+    - Light/dark/ocean theme variants
+    - Outputs to dedicated `output` branch
+  - `profile-waka-readme.yml` - WakaTime IDE time tracking
+    - 6-hour schedule for coding stats injection
+  - `profile-blog-posts.yml` - RSS feed blog post updates
+
+- **Documentation**
+  - `docs/GITHUB_PROFILE.md` - Comprehensive expert setup guide
+    - S+ rank algorithm breakdown (Stars 33.33%, PRs 25%, Commits 16.67%)
+    - Critical flags: `include_all_commits=true`, `count_private=true`
+    - PAT generation with required scopes
+    - Trophy SECRET rank achievement guide
+
+- **Templates & Scripts**
+  - `templates/PROFILE_README.md` - Expert-tier profile template
+    - Typing SVG animation
+    - GitHub stats cards (S+ optimized)
+    - Trophy shelf with SECRET ranks
+    - Snake contribution animation
+    - WakaTime coding time stats
+    - Skill badges with Simple Icons
+  - `scripts/setup-github-profile.sh` - Linux/macOS setup script
+  - `scripts/setup-github-profile.ps1` - Windows PowerShell setup
+
+- **Install Wizard Integration**
+  - Added "GitHub Profile" component to install wizard
+  - Automated PAT validation and secret setup
+
+### S+ Rank Optimization Reference
+```
+┌──────────────────────────────────────────────────────────┐
+│                  S+ RANK ALGORITHM                       │
+├──────────────────────────────────────────────────────────┤
+│ Stars Earned:      33.33%  → Get repos starred           │
+│ Pull Requests:     25.00%  → Contribute to open source   │
+│ Commits:           16.67%  → include_all_commits=true    │
+│ Issues:             8.33%  → Open quality issues         │
+│ Code Reviews:       8.33%  → Review PRs                  │
+│ Followers:          8.33%  → Build community             │
+└──────────────────────────────────────────────────────────┘
+
+Critical Flags:
+  &include_all_commits=true  ← Count private commits
+  &count_private=true        ← Include private contributions
+  &rank_icon=github          ← Clean rank display
+```
+
+## [2.2.0] - 2025-01-15
+
+### Added
+
+#### Experimental Stack - Cybernetic Evolution 🧪
+Five pillars transforming the homelab into a cognitive cybernetic ecosystem:
+
+- **LangFlow** (`k8s/experimental/langflow.yaml`) - Agentic AI orchestration
+  - Visual LangChain IDE with drag-and-drop workflows
+  - PostgreSQL backend for flow persistence
+  - Ollama integration for local LLM inference
+  - NetworkPolicy isolation and secure secrets management
+
+- **Chaos Mesh** (`k8s/experimental/chaos-mesh.yaml`) - CNCF fault injection
+  - Kernel-level chaos via eBPF (no sidecar required)
+  - Controller, Dashboard, and DaemonSet deployment
+  - Pre-built experiments: network-latency, pod-failure, stress-test, io-chaos
+  - Chaos Daemon runs privileged for ptrace capabilities
+
+- **Kepler** (`k8s/experimental/kepler.yaml`) - eBPF energy monitoring
+  - Joules-per-container metrics via RAPL and eBPF
+  - ServiceMonitor and PrometheusRules for alerting
+  - Grafana Dashboard #17701 integration
+  - Sustainability scoring per workload
+
+- **Kratix** (`k8s/experimental/kratix.yaml`) - Platform engineering
+  - Internal Developer Platform via Promises
+  - DevEnvironment Promise for on-demand workspaces
+  - AIModel Promise template for ML deployments
+  - Reconciliation with State Stores
+
+- **Rotki** (`k8s/experimental/rotki.yaml`) - Sovereign finance
+  - Local-first DeFi portfolio analytics
+  - Zero API keys required (chain RPC only)
+  - Automated snapshot CronJob
+  - NetworkPolicy restricting to Base/Ethereum RPC only
+
+#### Docker Experimental Stack
+- **docker-compose.experimental.yml** - Docker version of experimental services
+  - LangFlow with PostgreSQL backend
+  - Rotki portfolio tracker
+  - Scaphandre energy monitoring (Docker alternative to Kepler)
+  - n8n workflow automation
+  - Dozzle real-time log viewer
+
+#### Cybernetic Loop Architecture
+- **SENSE** → Kepler eBPF probes collect energy/latency metrics
+- **ANALYZE** → Prometheus aggregates, Grafana visualizes, Rotki tracks DeFi
+- **DECIDE** → LangFlow agents process data, invoke tools, make decisions
+- **ACT** → Kratix provisions resources, Chaos Mesh injects experiments
+
+#### Documentation
+- **docs/EXPERIMENTAL.md** - Comprehensive guide for all 5 pillars
+- Updated **docs/ARCHITECTURE.md** with cybernetic evolution section
+- Updated **README.md** with experimental stack features
+
+### Changed
+- Standardized paths: `/srv/FlashBang` → `/srv/homelab/config`
+- Standardized paths: `/srv/Tumadre` → `/srv/homelab/data`
+- ZFS pool names: `FlashBang` → `fast-pool`, `Tumadre` → `bulk-pool`
+- Placeholder pattern: `YOUR_USERNAME` → `<your-github-username>` with CUSTOMIZE markers
+
+### Fixed
+- Removed personal path references throughout codebase
+- Cleaned sensitive placeholders for public release
+- Updated all documentation for production polish
+
 ## [2.1.0] - 2024-12-23
 
 ### Added
@@ -123,7 +292,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 1. Backup your data:
    ```bash
-   tar czf backup.tar.gz /srv/FlashBang /srv/Tumadre
+   tar czf backup.tar.gz /srv/homelab/config /srv/homelab/data
    ```
 
 2. Pull the latest changes:

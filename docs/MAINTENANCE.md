@@ -122,7 +122,7 @@ docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
 df -h
 
 # Find large files
-du -sh /srv/Tumadre/* | sort -rh | head -10
+du -sh /srv/media/* | sort -rh | head -10
 
 # Docker specific
 docker system df
@@ -165,8 +165,8 @@ curl -X POST "http://localhost:8096/Library/Refresh" \
 
 ```bash
 # Start scrub on all pools
-zpool scrub FlashBang
-zpool scrub Tumadre
+zpool scrub homelab
+zpool scrub media
 
 # Check scrub progress
 zpool status
@@ -273,12 +273,12 @@ Before upgrading major versions (e.g., Jellyfin 10.8 → 10.9):
 
 1. **Backup configuration:**
    ```bash
-   tar -czvf jellyfin-backup-$(date +%Y%m%d).tar.gz /srv/FlashBang/jellyfin
+   tar -czvf jellyfin-backup-$(date +%Y%m%d).tar.gz /srv/homelab/jellyfin
    ```
 
 2. **Create ZFS snapshot:**
    ```bash
-   zfs snapshot FlashBang/jellyfin@before-upgrade
+   zfs snapshot homelab/jellyfin@before-upgrade
    ```
 
 3. **Pull and update:**
@@ -290,7 +290,7 @@ Before upgrading major versions (e.g., Jellyfin 10.8 → 10.9):
 4. **If issues, rollback:**
    ```bash
    docker compose down
-   zfs rollback FlashBang/jellyfin@before-upgrade
+   zfs rollback homelab/jellyfin@before-upgrade
    # Pin to previous version in docker-compose.yml
    docker compose up -d
    ```
@@ -306,7 +306,7 @@ Create `$HOME/scripts/backup.sh`:
 ```bash
 #!/bin/bash
 
-BACKUP_DIR="/srv/Tumadre/Backups"
+BACKUP_DIR="/srv/media/Backups"
 DATE=$(date +%Y-%m-%d)
 RETENTION_DAYS=30
 
@@ -314,8 +314,8 @@ echo "=== Starting Backup: $DATE ==="
 
 # 1. ZFS Snapshots
 echo "Creating ZFS snapshots..."
-zfs snapshot -r FlashBang@backup-$DATE
-zfs snapshot -r Tumadre@backup-$DATE
+zfs snapshot -r homelab@backup-$DATE
+zfs snapshot -r media@backup-$DATE
 
 # 2. Docker volumes backup
 echo "Backing up Docker volumes..."
@@ -475,3 +475,6 @@ cadvisor:
 ---
 
 *HomeLab - Self-Hosted Infrastructure*
+
+
+

@@ -5,8 +5,8 @@
 # HomeLab - Self-Hosted Infrastructure
 #
 # This script creates ZFS pools for your HomeLab:
-#   - FlashBang: Mirror of SSDs for fast VM/config storage
-#   - Tumadre: RAIDZ1 of HDDs for bulk media storage
+#   - fast-pool: Mirror of SSDs for fast VM/config storage
+#   - bulk-pool: RAIDZ1 of HDDs for bulk media storage
 #
 # Usage:
 #   chmod +x setup-zfs.sh
@@ -35,19 +35,19 @@ echo -e "${NC}"
 # CONFIGURATION - MODIFY THESE FOR YOUR SETUP
 # ==============================================================================
 
-# SSD devices for FlashBang pool (fast storage)
+# SSD devices for fast-pool (fast storage)
 SSD_DISK_1="/dev/sda"
 SSD_DISK_2="/dev/sdb"
 
-# HDD devices for Tumadre pool (bulk storage)
+# HDD devices for bulk-pool (bulk storage)
 HDD_DISK_1="/dev/sdc"
 HDD_DISK_2="/dev/sdd"
 # Add more HDDs here if you have them:
 # HDD_DISK_3="/dev/sde"
 
-# Pool names
-FAST_POOL="FlashBang"
-BULK_POOL="Tumadre"
+# Pool names (customize these for your environment)
+FAST_POOL="fast-pool"
+BULK_POOL="bulk-pool"
 
 # ==============================================================================
 # SAFETY CHECKS
@@ -94,7 +94,7 @@ if [[ "$confirm" != "YES" ]]; then
 fi
 
 # ==============================================================================
-# CREATE FLASHBANG POOL (SSD MIRROR)
+# CREATE FAST-POOL (SSD MIRROR)
 # ==============================================================================
 
 echo -e "\n${BLUE}🚀 Creating ${FAST_POOL} pool (SSD mirror)...${NC}"
@@ -123,7 +123,7 @@ else
 fi
 
 # ==============================================================================
-# CREATE TUMADRE POOL (HDD RAIDZ1)
+# CREATE BULK-POOL (HDD RAIDZ1)
 # ==============================================================================
 
 echo -e "\n${BLUE}🚀 Creating ${BULK_POOL} pool (HDD RAIDZ1)...${NC}"
@@ -160,7 +160,7 @@ fi
 
 echo -e "\n${BLUE}📁 Creating ZFS datasets...${NC}"
 
-# FlashBang datasets (configs, VMs)
+# fast-pool datasets (configs, VMs)
 datasets_fast=(
     "${FAST_POOL}/jellyfin"
     "${FAST_POOL}/qbittorrent"
@@ -176,7 +176,7 @@ datasets_fast=(
     "${FAST_POOL}/vms"
 )
 
-# Tumadre datasets (media)
+# bulk-pool datasets (media)
 datasets_bulk=(
     "${BULK_POOL}/Movies"
     "${BULK_POOL}/Series"
@@ -237,7 +237,7 @@ zfs list
 
 echo -e "\n${YELLOW}📋 Next Steps:${NC}"
 echo "  1. Create a Debian 12 VM in Proxmox"
-echo "  2. Pass through /srv/FlashBang and /srv/Tumadre to the VM"
+echo "  2. Pass through /srv/\${FAST_POOL} and /srv/\${BULK_POOL} to the VM"
 echo "  3. Install Docker in the VM"
 echo "  4. Run docker compose up -d"
 echo ""

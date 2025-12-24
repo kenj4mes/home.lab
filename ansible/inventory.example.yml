@@ -1,0 +1,100 @@
+# ==============================================================================
+# 🤖 HomeLab Ansible Automation
+# ==============================================================================
+# Ansible playbooks for automated server provisioning and configuration.
+#
+# REQUIREMENTS:
+#   - Ansible Core 2.14+ (pip install ansible-core)
+#   - SSH access to target hosts
+#   - Python 3.9+ on control node
+#
+# QUICK START:
+#   1. Copy inventory.example.yml to inventory.yml
+#   2. Update with your hosts and credentials
+#   3. Run: ansible-playbook -i inventory.yml playbooks/site.yml
+#
+# TESTING:
+#   ansible-playbook -i inventory.yml playbooks/site.yml --check --diff
+# ==============================================================================
+
+# Inventory Structure
+all:
+  vars:
+    # Global variables
+    ansible_user: ansible
+    ansible_become: true
+    ansible_python_interpreter: /usr/bin/python3
+    
+    # HomeLab Configuration
+    homelab_domain: homelab.local
+    homelab_timezone: UTC
+    homelab_ntp_servers:
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+    
+    # Docker Configuration
+    docker_edition: ce
+    docker_compose_version: "2.24.0"
+    
+    # Container Runtime (for K8s nodes)
+    container_runtime: containerd  # or crio
+
+  children:
+    # ==========================================================================
+    # Docker Hosts (Docker Compose based)
+    # ==========================================================================
+    docker_hosts:
+      hosts:
+        docker01:
+          ansible_host: 192.168.1.10
+          # ansible_ssh_private_key_file: ~/.ssh/homelab_key
+        docker02:
+          ansible_host: 192.168.1.11
+
+    # ==========================================================================
+    # Kubernetes Cluster
+    # ==========================================================================
+    k8s_cluster:
+      children:
+        k8s_control_plane:
+          hosts:
+            k8s-master01:
+              ansible_host: 192.168.1.20
+            k8s-master02:
+              ansible_host: 192.168.1.21
+            k8s-master03:
+              ansible_host: 192.168.1.22
+        k8s_workers:
+          hosts:
+            k8s-worker01:
+              ansible_host: 192.168.1.30
+            k8s-worker02:
+              ansible_host: 192.168.1.31
+            k8s-worker03:
+              ansible_host: 192.168.1.32
+
+    # ==========================================================================
+    # Infrastructure Services
+    # ==========================================================================
+    infrastructure:
+      children:
+        dns_servers:
+          hosts:
+            pihole01:
+              ansible_host: 192.168.1.5
+        storage_servers:
+          hosts:
+            nas01:
+              ansible_host: 192.168.1.6
+
+    # ==========================================================================
+    # Proxmox Hypervisors
+    # ==========================================================================
+    proxmox:
+      hosts:
+        pve01:
+          ansible_host: 192.168.1.2
+          ansible_user: root
+        pve02:
+          ansible_host: 192.168.1.3
+          ansible_user: root

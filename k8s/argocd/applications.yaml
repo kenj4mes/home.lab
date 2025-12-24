@@ -3,7 +3,7 @@
 # ==============================================================================
 # Declarative GitOps continuous delivery for Kubernetes
 #
-# CUSTOMIZE: Replace 'kenj4mes/home.lab' with your fork's URL
+# CUSTOMIZE: Replace '<your-github-username>' with your GitHub username
 #
 # Install ArgoCD:
 #   kubectl create namespace argocd
@@ -38,7 +38,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/kenj4mes/home.lab.git
+    # CUSTOMIZE: Replace <your-github-username> with your GitHub username
+    repoURL: https://github.com/<your-github-username>/home.lab.git
     targetRevision: HEAD
     path: k8s/core
     directory:
@@ -72,7 +73,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/kenj4mes/home.lab.git
+    # CUSTOMIZE: Replace <your-github-username> with your GitHub username
+    repoURL: https://github.com/<your-github-username>/home.lab.git
     targetRevision: HEAD
     path: k8s/monitoring
   destination:
@@ -95,7 +97,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/kenj4mes/home.lab.git
+    # CUSTOMIZE: Replace <your-github-username> with your GitHub username
+    repoURL: https://github.com/<your-github-username>/home.lab.git
     targetRevision: HEAD
     path: k8s/ai
   destination:
@@ -118,7 +121,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/kenj4mes/home.lab.git
+    # CUSTOMIZE: Replace <your-github-username> with your GitHub username
+    repoURL: https://github.com/<your-github-username>/home.lab.git
     targetRevision: HEAD
     path: k8s/security
   destination:

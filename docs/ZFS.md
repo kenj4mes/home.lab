@@ -33,41 +33,41 @@ ZFS (Zettabyte File System) provides:
 | Pool | Type | Disks | Purpose |
 |------|------|-------|---------|
 | **rpool** | Mirror | 2× SSD | Proxmox OS |
-| **FlashBang** | Mirror | 2× SSD | VM/Config storage |
-| **Tumadre** | RAIDZ1 | 2+ HDD | Bulk media storage |
+| **homelab** | Mirror | 2× SSD | VM/Config storage |
+| **media** | RAIDZ1 | 2+ HDD | Bulk media storage |
 
 ---
 
 ## Pool Architecture
 
-### FlashBang (Fast Storage)
+### homelab (Fast Storage)
 
 ```
-FlashBang (mirror)
-├── /srv/FlashBang/jellyfin     # Jellyfin config
-├── /srv/FlashBang/qbittorrent  # qBittorrent config
-├── /srv/FlashBang/bookstack    # BookStack config
-├── /srv/FlashBang/nginx        # Nginx Proxy Manager
-├── /srv/FlashBang/ollama       # LLM models (~10GB+)
-├── /srv/FlashBang/prowlarr     # Indexer config
-├── /srv/FlashBang/radarr       # Movie manager config
-├── /srv/FlashBang/sonarr       # TV manager config
-├── /srv/FlashBang/lidarr       # Music manager config
-├── /srv/FlashBang/portainer    # Docker manager
-└── /srv/FlashBang/vms          # VM disk images
+homelab (mirror)
+├── /srv/homelab/jellyfin     # Jellyfin config
+├── /srv/homelab/qbittorrent  # qBittorrent config
+├── /srv/homelab/bookstack    # BookStack config
+├── /srv/homelab/nginx        # Nginx Proxy Manager
+├── /srv/homelab/ollama       # LLM models (~10GB+)
+├── /srv/homelab/prowlarr     # Indexer config
+├── /srv/homelab/radarr       # Movie manager config
+├── /srv/homelab/sonarr       # TV manager config
+├── /srv/homelab/lidarr       # Music manager config
+├── /srv/homelab/portainer    # Docker manager
+└── /srv/homelab/vms          # VM disk images
 ```
 
-### Tumadre (Bulk Storage)
+### media (Bulk Storage)
 
 ```
-Tumadre (raidz1)
-├── /srv/Tumadre/Movies         # Movie files
-├── /srv/Tumadre/Series         # TV series
-├── /srv/Tumadre/Music          # Music library
-├── /srv/Tumadre/Photos         # Photo library
-├── /srv/Tumadre/Books          # Ebooks/Audiobooks
-├── /srv/Tumadre/Downloads      # Download staging
-└── /srv/Tumadre/ZIM            # Wikipedia ZIM files
+media (raidz1)
+├── /srv/media/Movies         # Movie files
+├── /srv/media/Series         # TV series
+├── /srv/media/Music          # Music library
+├── /srv/media/Photos         # Photo library
+├── /srv/media/Books          # Ebooks/Audiobooks
+├── /srv/media/Downloads      # Download staging
+└── /srv/media/ZIM            # Wikipedia ZIM files
 ```
 
 ---
@@ -84,16 +84,16 @@ zpool list
 zpool status
 
 # Detailed pool information
-zpool get all FlashBang
+zpool get all homelab
 
 # Check pool I/O stats
 zpool iostat -v 1
 
 # Import a pool (after reboot or move)
-zpool import FlashBang
+zpool import homelab
 
 # Export a pool (before moving drives)
-zpool export Tumadre
+zpool export media
 ```
 
 ### Dataset Management
@@ -103,35 +103,35 @@ zpool export Tumadre
 zfs list
 
 # Create a new dataset
-zfs create FlashBang/newdataset
+zfs create homelab/newdataset
 
 # Create nested dataset
-zfs create -p FlashBang/apps/myapp
+zfs create -p homelab/apps/myapp
 
 # Destroy a dataset (CAREFUL!)
-zfs destroy FlashBang/olddataset
+zfs destroy homelab/olddataset
 
 # Set mountpoint
-zfs set mountpoint=/custom/path FlashBang/data
+zfs set mountpoint=/custom/path homelab/data
 
 # Enable compression
-zfs set compression=lz4 Tumadre
+zfs set compression=lz4 media
 
 # Check compression ratio
-zfs get compressratio Tumadre
+zfs get compressratio media
 ```
 
 ### Properties
 
 ```bash
 # View all properties
-zfs get all FlashBang
+zfs get all homelab
 
 # Set property
-zfs set quota=100G FlashBang/jellyfin
+zfs set quota=100G homelab/jellyfin
 
 # Set reservation (guaranteed space)
-zfs set reservation=50G FlashBang/ollama
+zfs set reservation=50G homelab/ollama
 
 # Common properties
 zfs set compression=lz4 <dataset>      # Enable compression
@@ -148,61 +148,61 @@ zfs set recordsize=16K <dataset>       # Small files (databases)
 
 ```bash
 # Create a snapshot
-zfs snapshot FlashBang@before-upgrade
+zfs snapshot homelab@before-upgrade
 
 # Create recursive snapshot (all child datasets)
-zfs snapshot -r Tumadre@weekly-backup
+zfs snapshot -r media@weekly-backup
 
 # Create timestamped snapshot
-zfs snapshot Tumadre@$(date +%Y-%m-%d_%H%M)
+zfs snapshot media@$(date +%Y-%m-%d_%H%M)
 
 # List snapshots
 zfs list -t snapshot
 
 # List snapshots for specific dataset
-zfs list -t snapshot -r FlashBang
+zfs list -t snapshot -r homelab
 ```
 
 ### Using Snapshots
 
 ```bash
 # Access snapshot data (hidden .zfs directory)
-ls /srv/FlashBang/.zfs/snapshot/before-upgrade/
+ls /srv/homelab/.zfs/snapshot/before-upgrade/
 
 # Rollback to snapshot (DESTRUCTIVE - loses newer data)
-zfs rollback FlashBang@before-upgrade
+zfs rollback homelab@before-upgrade
 
 # Rollback with force (destroy intermediate snapshots)
-zfs rollback -r FlashBang@before-upgrade
+zfs rollback -r homelab@before-upgrade
 ```
 
 ### Cloning Snapshots
 
 ```bash
 # Clone a snapshot (writable copy)
-zfs clone Tumadre/Movies@backup Tumadre/Movies-copy
+zfs clone media/Movies@backup media/Movies-copy
 
 # Promote clone to independent dataset
-zfs promote Tumadre/Movies-copy
+zfs promote media/Movies-copy
 ```
 
 ### Sending/Receiving (Backup & Replication)
 
 ```bash
 # Send snapshot to file
-zfs send FlashBang@backup > /backup/flashbang.zfs
+zfs send homelab@backup > /backup/homelab.zfs
 
 # Send compressed
-zfs send FlashBang@backup | gzip > /backup/flashbang.zfs.gz
+zfs send homelab@backup | gzip > /backup/homelab.zfs.gz
 
 # Receive snapshot
-zfs receive BackupPool/FlashBang < /backup/flashbang.zfs
+zfs receive BackupPool/homelab < /backup/homelab.zfs
 
 # Incremental send (faster for updates)
-zfs send -i @snap1 FlashBang@snap2 | zfs receive BackupPool/FlashBang
+zfs send -i @snap1 homelab@snap2 | zfs receive BackupPool/homelab
 
 # Send to remote server
-zfs send FlashBang@backup | ssh user@remote "zfs receive BackupPool/FlashBang"
+zfs send homelab@backup | ssh user@remote "zfs receive BackupPool/homelab"
 ```
 
 ### Automated Snapshots
@@ -214,10 +214,10 @@ Add to crontab (`sudo crontab -e`):
 0 2 * * * /path/to/scripts/zfs-snapshot.sh
 
 # Weekly snapshot on Sunday at 3 AM
-0 3 * * 0 zfs snapshot -r Tumadre@weekly-$(date +\%Y-\%m-\%d)
+0 3 * * 0 zfs snapshot -r media@weekly-$(date +\%Y-\%m-\%d)
 
 # Monthly snapshot on 1st at 4 AM
-0 4 1 * * zfs snapshot -r Tumadre@monthly-$(date +\%Y-\%m)
+0 4 1 * * zfs snapshot -r media@monthly-$(date +\%Y-\%m)
 ```
 
 ---
@@ -231,8 +231,8 @@ Add to crontab (`sudo crontab -e`):
 zpool status
 
 # Run scrub (integrity check) - do monthly
-zpool scrub FlashBang
-zpool scrub Tumadre
+zpool scrub homelab
+zpool scrub media
 
 # Check scrub progress
 zpool status | grep -A 5 "scan:"
@@ -245,23 +245,23 @@ zpool status -v
 
 ```bash
 # Add a disk to existing pool (NOT recommended for mirrors/raidz)
-zpool add Tumadre /dev/sde
+zpool add media /dev/sde
 
 # Replace a failed disk
-zpool replace Tumadre /dev/sdc /dev/sde
+zpool replace media /dev/sdc /dev/sde
 
 # Resilver status (after replace)
 zpool status
 
 # Add a mirror to existing vdev
-zpool attach FlashBang /dev/sda /dev/sdc
+zpool attach homelab /dev/sda /dev/sdc
 ```
 
 ### Expansion
 
 ```bash
 # After replacing all disks with larger ones
-zpool online -e FlashBang
+zpool online -e homelab
 
 # Check new size
 zpool list
@@ -271,10 +271,10 @@ zpool list
 
 ```bash
 # Add SSD cache (L2ARC)
-zpool add Tumadre cache /dev/nvme0n1p1
+zpool add media cache /dev/nvme0n1p1
 
 # Add SSD log device (SLOG)
-zpool add Tumadre log mirror /dev/nvme0n1p2 /dev/nvme0n2p2
+zpool add media log mirror /dev/nvme0n1p2 /dev/nvme0n2p2
 
 # Check ARC stats
 arc_summary
@@ -295,13 +295,13 @@ cat /proc/spl/kstat/zfs/arcstats
 zpool import
 
 # Import by name
-zpool import FlashBang
+zpool import homelab
 
 # Import with different mountpoint
-zpool import -R /mnt FlashBang
+zpool import -R /mnt homelab
 
 # Force import (use with caution)
-zpool import -f FlashBang
+zpool import -f homelab
 ```
 
 #### Degraded Pool
@@ -311,10 +311,10 @@ zpool import -f FlashBang
 zpool status
 
 # Replace failed disk
-zpool replace Tumadre /dev/sdc /dev/sde
+zpool replace media /dev/sdc /dev/sde
 
 # Clear errors after fix
-zpool clear Tumadre
+zpool clear media
 ```
 
 #### Pool is Full
@@ -324,10 +324,10 @@ zpool clear Tumadre
 zfs list
 
 # Delete old snapshots
-zfs destroy FlashBang@old-snapshot
+zfs destroy homelab@old-snapshot
 
 # List largest files
-du -sh /srv/Tumadre/* | sort -rh | head -20
+du -sh /srv/media/* | sort -rh | head -20
 ```
 
 #### Slow Performance
@@ -340,10 +340,10 @@ zpool iostat -v 1
 arc_summary | grep "Hit Ratio"
 
 # Disable atime
-zfs set atime=off Tumadre
+zfs set atime=off media
 
 # Check compression
-zfs get compressratio Tumadre
+zfs get compressratio media
 ```
 
 ---
@@ -354,15 +354,15 @@ zfs get compressratio Tumadre
 
 ```bash
 # Create encrypted dataset
-zfs create -o encryption=on -o keyformat=passphrase FlashBang/secrets
+zfs create -o encryption=on -o keyformat=passphrase homelab/secrets
 
 # Load key at boot
-zfs load-key FlashBang/secrets
-zfs mount FlashBang/secrets
+zfs load-key homelab/secrets
+zfs mount homelab/secrets
 
 # Unload key (unmount and lock)
-zfs unmount FlashBang/secrets
-zfs unload-key FlashBang/secrets
+zfs unmount homelab/secrets
+zfs unload-key homelab/secrets
 ```
 
 ### Send/Receive Over Network
@@ -370,8 +370,8 @@ zfs unload-key FlashBang/secrets
 ```bash
 # Continuous replication to backup server
 while true; do
-    zfs send -i @last Tumadre@$(date +%Y%m%d) | \
-        ssh backup-server "zfs receive BackupPool/Tumadre"
+    zfs send -i @last media@$(date +%Y%m%d) | \
+        ssh backup-server "zfs receive BackupPool/media"
     sleep 3600
 done
 ```
@@ -380,10 +380,10 @@ done
 
 ```bash
 # NFS share
-zfs set sharenfs=on FlashBang/share
+zfs set sharenfs=on homelab/share
 
 # SMB share (requires Samba)
-zfs set sharesmb=on FlashBang/share
+zfs set sharesmb=on homelab/share
 ```
 
 ### Docker on ZFS
@@ -392,7 +392,7 @@ For best Docker performance on ZFS:
 
 ```bash
 # Create dedicated dataset for Docker
-zfs create -o mountpoint=/var/lib/docker FlashBang/docker
+zfs create -o mountpoint=/var/lib/docker homelab/docker
 
 # Configure Docker to use ZFS driver
 cat > /etc/docker/daemon.json << EOF
@@ -426,3 +426,6 @@ systemctl restart docker
 ---
 
 *HomeLab - Self-Hosted Infrastructure*
+
+
+

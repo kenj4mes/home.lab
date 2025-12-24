@@ -1,0 +1,549 @@
+# ==============================================================================
+# 📺 Media Frontends - Kubernetes
+# ==============================================================================
+# Privacy-respecting alternative frontends for social media
+# - Invidious (YouTube)
+# - Nitter (Twitter/X)
+# - Teddit/Libreddit (Reddit)
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: media-frontends
+  labels:
+    app.kubernetes.io/name: media-frontends
+    app.kubernetes.io/part-of: social-stack
+
+---
+# ==============================================================================
+# Invidious - YouTube Frontend
+# ==============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: invidious-secrets
+  namespace: media-frontends
+type: Opaque
+stringData:
+  postgres-password: "CHANGEME_INVIDIOUS_DB_PASSWORD"
+  hmac-key: "CHANGEME_INVIDIOUS_HMAC_KEY"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: invidious-postgres-pvc
+  namespace: media-frontends
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invidious-postgres
+  namespace: media-frontends
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: invidious-postgres
+  template:
+    metadata:
+      labels:
+        app: invidious-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:14-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "invidious"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: invidious-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              value: "invidious"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: invidious-postgres-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: invidious-postgres
+  namespace: media-frontends
+spec:
+  selector:
+    app: invidious-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: invidious-config
+  namespace: media-frontends
+data:
+  INVIDIOUS_CONFIG: |
+    db:
+      dbname: invidious
+      user: invidious
+      password: $(POSTGRES_PASSWORD)
+      host: invidious-postgres
+      port: 5432
+    check_tables: true
+    domain: youtube.homelab.local
+    https_only: true
+    external_port: 443
+    default_user_preferences:
+      dark_mode: "dark"
+      local: true
+      quality: "hd720"
+      region: "US"
+      captions: ["", "", ""]
+    popular_enabled: true
+    statistics_enabled: false
+    registration_enabled: true
+    login_enabled: true
+    captcha_enabled: false
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invidious
+  namespace: media-frontends
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: invidious
+  template:
+    metadata:
+      labels:
+        app: invidious
+    spec:
+      containers:
+        - name: invidious
+          image: quay.io/invidious/invidious:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: invidious-secrets
+                  key: postgres-password
+            - name: INVIDIOUS_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: invidious-config
+                  key: INVIDIOUS_CONFIG
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: invidious
+  namespace: media-frontends
+spec:
+  selector:
+    app: invidious
+  ports:
+    - port: 3000
+      targetPort: 3000
+
+---
+# ==============================================================================
+# Nitter - Twitter/X Frontend
+# ==============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nitter-secrets
+  namespace: media-frontends
+type: Opaque
+stringData:
+  hmac-key: "CHANGEME_NITTER_HMAC_KEY_RANDOM"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nitter-config
+  namespace: media-frontends
+data:
+  nitter.conf: |
+    [Server]
+    title = "Nitter (HomeLab)"
+    hostname = "twitter.homelab.local"
+    address = "0.0.0.0"
+    port = 8080
+    https = false
+    httpMaxConnections = 100
+    staticDir = "./public"
+    
+    [Cache]
+    listMinutes = 240
+    rssMinutes = 10
+    redisHost = "nitter-redis"
+    redisPort = 6379
+    redisMaxConnections = 30
+    
+    [Config]
+    hmacKey = "CHANGEME_NITTER_HMAC_KEY"
+    base64Media = false
+    enableRSS = true
+    enableDebug = false
+    proxy = ""
+    proxyAuth = ""
+    tokenCount = 10
+    
+    [Preferences]
+    theme = "Auto"
+    replaceTwitter = "twitter.homelab.local"
+    replaceYouTube = "youtube.homelab.local"
+    replaceReddit = "reddit.homelab.local"
+    proxyVideos = true
+    hlsPlayback = false
+    infiniteScroll = false
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nitter-redis
+  namespace: media-frontends
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nitter-redis
+  template:
+    metadata:
+      labels:
+        app: nitter-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server", "--save", "60", "1"]
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nitter-redis
+  namespace: media-frontends
+spec:
+  selector:
+    app: nitter-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nitter
+  namespace: media-frontends
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nitter
+  template:
+    metadata:
+      labels:
+        app: nitter
+    spec:
+      containers:
+        - name: nitter
+          image: zedeus/nitter:latest
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /src/nitter.conf
+              subPath: nitter.conf
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: config
+          configMap:
+            name: nitter-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nitter
+  namespace: media-frontends
+spec:
+  selector:
+    app: nitter
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+---
+# ==============================================================================
+# Libreddit - Reddit Frontend (Teddit alternative)
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: libreddit
+  namespace: media-frontends
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: libreddit
+  template:
+    metadata:
+      labels:
+        app: libreddit
+    spec:
+      containers:
+        - name: libreddit
+          image: libreddit/libreddit:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: LIBREDDIT_DEFAULT_THEME
+              value: "dark"
+            - name: LIBREDDIT_DEFAULT_FRONT_PAGE
+              value: "popular"
+            - name: LIBREDDIT_DEFAULT_SHOW_NSFW
+              value: "false"
+            - name: LIBREDDIT_DEFAULT_USE_HLS
+              value: "true"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: libreddit
+  namespace: media-frontends
+spec:
+  selector:
+    app: libreddit
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+---
+# ==============================================================================
+# MeTube - YouTube Downloader
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metube-downloads-pvc
+  namespace: media-frontends
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metube
+  namespace: media-frontends
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metube
+  template:
+    metadata:
+      labels:
+        app: metube
+    spec:
+      containers:
+        - name: metube
+          image: ghcr.io/alexta69/metube:latest
+          ports:
+            - containerPort: 8081
+          env:
+            - name: UID
+              value: "1000"
+            - name: GID
+              value: "1000"
+            - name: DOWNLOAD_DIR
+              value: "/downloads"
+            - name: STATE_DIR
+              value: "/state"
+            - name: YTDL_OPTIONS
+              value: '{"writesubtitles":true,"subtitleslangs":["en"],"writethumbnail":true}'
+          volumeMounts:
+            - name: downloads
+              mountPath: /downloads
+            - name: state
+              mountPath: /state
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: downloads
+          persistentVolumeClaim:
+            claimName: metube-downloads-pvc
+        - name: state
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metube
+  namespace: media-frontends
+spec:
+  selector:
+    app: metube
+  ports:
+    - port: 8081
+      targetPort: 8081
+
+---
+# ==============================================================================
+# Ingresses
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: media-frontends-ingress
+  namespace: media-frontends
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - youtube.homelab.local
+        - twitter.homelab.local
+        - reddit.homelab.local
+        - metube.homelab.local
+      secretName: media-frontends-tls
+  rules:
+    - host: youtube.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: invidious
+                port:
+                  number: 3000
+    - host: twitter.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nitter
+                port:
+                  number: 8080
+    - host: reddit.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: libreddit
+                port:
+                  number: 8080
+    - host: metube.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: metube
+                port:
+                  number: 8081

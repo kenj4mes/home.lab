@@ -1,0 +1,345 @@
+# ==============================================================================
+# 🌐 Farcaster Integration Stack - Kubernetes
+# ==============================================================================
+# Self-hosted Farcaster node with Hub, Replicator, and API
+# Enables full Web3 social capabilities on Base
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: farcaster
+  labels:
+    app.kubernetes.io/name: farcaster
+    app.kubernetes.io/part-of: social-stack
+
+---
+# ==============================================================================
+# Secrets (use External Secrets Operator in production)
+# ==============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: farcaster-secrets
+  namespace: farcaster
+type: Opaque
+stringData:
+  # Replace with your actual values
+  eth-rpc-url: "CHANGEME_ETH_MAINNET_RPC"
+  optimism-rpc-url: "CHANGEME_OPTIMISM_RPC"
+  postgres-password: "CHANGEME_FC_POSTGRES_PASSWORD"
+  hub-id: "homelab-farcaster-hub"
+  # For posting: Your Farcaster account mnemonic (KEEP SECRET!)
+  # farcaster-mnemonic: "word1 word2 word3..."
+
+---
+# ==============================================================================
+# PostgreSQL for Farcaster Replicator
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: farcaster-postgres-pvc
+  namespace: farcaster
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 100Gi  # Farcaster data grows fast
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: farcaster-postgres
+  namespace: farcaster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: farcaster-postgres
+  template:
+    metadata:
+      labels:
+        app: farcaster-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "farcaster"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: farcaster-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              value: "farcaster"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: farcaster-postgres-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: farcaster-postgres
+  namespace: farcaster
+spec:
+  selector:
+    app: farcaster-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+# ==============================================================================
+# Redis for Farcaster
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: farcaster-redis
+  namespace: farcaster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: farcaster-redis
+  template:
+    metadata:
+      labels:
+        app: farcaster-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: redis-data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: farcaster-redis
+  namespace: farcaster
+spec:
+  selector:
+    app: farcaster-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+
+---
+# ==============================================================================
+# Farcaster Hub - Core Node
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: farcaster-hub-pvc
+  namespace: farcaster
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 200Gi  # Hub needs significant storage
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: farcaster-hub
+  namespace: farcaster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: farcaster-hub
+  template:
+    metadata:
+      labels:
+        app: farcaster-hub
+    spec:
+      containers:
+        - name: hubble
+          image: farcasterxyz/hubble:latest
+          ports:
+            - containerPort: 2281
+              name: gossip
+            - containerPort: 2282
+              name: rpc
+            - containerPort: 2283
+              name: http
+          env:
+            - name: HUB_ID
+              valueFrom:
+                secretKeyRef:
+                  name: farcaster-secrets
+                  key: hub-id
+            - name: ETH_MAINNET_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: farcaster-secrets
+                  key: eth-rpc-url
+            - name: OPTIMISM_L2_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: farcaster-secrets
+                  key: optimism-rpc-url
+            - name: FC_NETWORK_ID
+              value: "1"  # Mainnet
+            - name: BOOTSTRAP_NODE
+              value: "/dns/nemes.farcaster.xyz/tcp/2282"
+          volumeMounts:
+            - name: hub-data
+              mountPath: /hub/.rocks
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "1000m"
+            limits:
+              memory: "8Gi"
+              cpu: "4000m"
+          livenessProbe:
+            httpGet:
+              path: /v1/info
+              port: 2283
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /v1/info
+              port: 2283
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: hub-data
+          persistentVolumeClaim:
+            claimName: farcaster-hub-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: farcaster-hub
+  namespace: farcaster
+spec:
+  selector:
+    app: farcaster-hub
+  ports:
+    - name: gossip
+      port: 2281
+      targetPort: 2281
+    - name: rpc
+      port: 2282
+      targetPort: 2282
+    - name: http
+      port: 2283
+      targetPort: 2283
+
+---
+# ==============================================================================
+# Farcaster Replicator - Sync to PostgreSQL
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: farcaster-replicator
+  namespace: farcaster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: farcaster-replicator
+  template:
+    metadata:
+      labels:
+        app: farcaster-replicator
+    spec:
+      containers:
+        - name: replicator
+          image: farcasterxyz/replicator:latest
+          env:
+            - name: HUB_HOST
+              value: "farcaster-hub"
+            - name: HUB_PORT
+              value: "2283"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: farcaster-secrets
+                  key: postgres-password
+            - name: POSTGRES_URL
+              value: "postgres://farcaster:$(POSTGRES_PASSWORD)@farcaster-postgres:5432/farcaster"
+            - name: REDIS_URL
+              value: "redis://farcaster-redis:6379"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+
+---
+# ==============================================================================
+# Ingress for Farcaster Hub API
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: farcaster-ingress
+  namespace: farcaster
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - farcaster.homelab.local
+      secretName: farcaster-tls
+  rules:
+    - host: farcaster.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: farcaster-hub
+                port:
+                  number: 2283

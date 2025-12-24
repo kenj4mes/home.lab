@@ -43,7 +43,7 @@ docker inspect <container-name> | grep -A 10 "State"
 
 ```bash
 # Fix volume ownership
-sudo chown -R 1000:1000 /srv/FlashBang/<service>
+sudo chown -R 1000:1000 /srv/homelab/<service>
 
 # Docker socket permission
 sudo chmod 666 /var/run/docker.sock
@@ -217,7 +217,7 @@ zfs list -t snapshot -o name,used -s used | tail -20
 zfs destroy <pool>@<snapshot>
 
 # Find large files
-du -sh /srv/Tumadre/* | sort -rh | head -20
+du -sh /srv/media/* | sort -rh | head -20
 
 # Check for snapshot usage
 zfs list -o space
@@ -227,13 +227,13 @@ zfs list -o space
 
 ```bash
 # Check permissions
-ls -la /srv/FlashBang/<service>
+ls -la /srv/homelab/<service>
 
 # Fix ownership
-sudo chown -R 1000:1000 /srv/FlashBang/<service>
+sudo chown -R 1000:1000 /srv/homelab/<service>
 
 # Check if read-only
-mount | grep /srv/FlashBang
+mount | grep /srv/homelab
 
 # Check ZFS dataset
 zfs get readonly <dataset>
@@ -264,10 +264,10 @@ arc_summary | grep "Hit Ratio"
 **Library not scanning:**
 ```bash
 # Check permissions on media folder
-ls -la /srv/Tumadre/Movies
+ls -la /srv/media/Movies
 
 # Fix permissions
-sudo chown -R 1000:1000 /srv/Tumadre/Movies
+sudo chown -R 1000:1000 /srv/media/Movies
 
 # Restart Jellyfin
 docker restart jellyfin
@@ -303,7 +303,7 @@ docker restart bookstack
 **Model not loading:**
 ```bash
 # Check disk space
-df -h /srv/FlashBang/ollama
+df -h /srv/homelab/ollama
 
 # Check Ollama logs
 journalctl -u ollama -f
@@ -497,7 +497,7 @@ zpool status
 docker stop <container>
 
 # 2. Rollback ZFS
-zfs rollback FlashBang/<service>@last-good
+zfs rollback homelab/<service>@last-good
 
 # 3. Start service
 docker start <container>
@@ -506,3 +506,6 @@ docker start <container>
 ---
 
 *HomeLab - Self-Hosted Infrastructure*
+
+
+

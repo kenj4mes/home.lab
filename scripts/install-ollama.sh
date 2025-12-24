@@ -55,7 +55,7 @@ cat > /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
 Environment="OLLAMA_HOST=0.0.0.0"
 
 # Custom models directory (optional - uncomment to use)
-# Environment="OLLAMA_MODELS=/srv/FlashBang/ollama/models"
+# Environment="OLLAMA_MODELS=/srv/homelab/config/ollama/models"
 
 # GPU settings (uncomment for NVIDIA)
 # Environment="CUDA_VISIBLE_DEVICES=0"

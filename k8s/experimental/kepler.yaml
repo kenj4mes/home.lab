@@ -1,0 +1,401 @@
+# ==============================================================================
+# Kepler - Kubernetes Energy Efficiency Project
+# ==============================================================================
+# eBPF-based energy observability for Kubernetes
+# Measures actual power consumption per pod/container
+#
+# Features:
+#   - Per-pod energy metrics (Joules)
+#   - RAPL/ACPI hardware counter integration
+#   - Carbon emissions estimation
+#   - Prometheus integration
+#
+# Dashboard: Grafana Dashboard #17701
+# Docs: https://sustainable-computing.io/
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kepler
+  labels:
+    app.kubernetes.io/name: kepler
+    app.kubernetes.io/part-of: experimental-stack
+---
+# =============================================================================
+# RBAC
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kepler
+  namespace: kepler
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kepler
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes/proxy"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kepler
+subjects:
+  - kind: ServiceAccount
+    name: kepler
+    namespace: kepler
+roleRef:
+  kind: ClusterRole
+  name: kepler
+  apiGroup: rbac.authorization.k8s.io
+---
+# =============================================================================
+# Kepler ConfigMap
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-config
+  namespace: kepler
+data:
+  # Model configuration for power estimation
+  MODEL_CONFIG: |
+    COUNTER_METRICS: '["cpu_cycles", "cpu_ref_cycles", "cpu_instructions", "cache_miss"]'
+    POWER_SOURCE: 'rapl,acpi,estimate'
+    NODE_COMPONENTS: '["core", "uncore", "dram", "pkg", "gpu"]'
+  
+  # Carbon intensity for your region (gCO2/kWh)
+  # Update based on your local grid: https://www.electricitymaps.com/
+  CARBON_INTENSITY: "400"
+  
+  # Expose container-level metrics
+  EXPOSE_CONTAINER_METRICS: "true"
+  EXPOSE_VM_METRICS: "true"
+  EXPOSE_CGROUP_METRICS: "true"
+  
+  # eBPF configuration
+  ENABLE_EBPF_CGROUPID: "true"
+  ENABLE_PROCESS_METRICS: "true"
+  
+  # GPU monitoring (if available)
+  ENABLE_GPU: "true"
+---
+# =============================================================================
+# Kepler DaemonSet (runs on every node for energy monitoring)
+# =============================================================================
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler
+  namespace: kepler
+  labels:
+    app: kepler
+spec:
+  selector:
+    matchLabels:
+      app: kepler
+  template:
+    metadata:
+      labels:
+        app: kepler
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9102"
+    spec:
+      serviceAccountName: kepler
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: kepler
+          image: quay.io/sustainable_computing_io/kepler:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9102
+              name: metrics
+              hostPort: 9102
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: KEPLER_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          envFrom:
+            - configMapRef:
+                name: kepler-config
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - BPF
+                - PERFMON
+          volumeMounts:
+            # eBPF maps
+            - name: bpf
+              mountPath: /sys/fs/bpf
+            # Kernel debug for tracing
+            - name: debugfs
+              mountPath: /sys/kernel/debug
+            # cgroup v2
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+            # Proc filesystem
+            - name: proc
+              mountPath: /proc
+            # Modules (for kernel version info)
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            # Kernel source (for BTF)
+            - name: usr-src
+              mountPath: /usr/src
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9102
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9102
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      
+      volumes:
+        - name: bpf
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+        - name: debugfs
+          hostPath:
+            path: /sys/kernel/debug
+            type: Directory
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory
+        - name: proc
+          hostPath:
+            path: /proc
+            type: Directory
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: usr-src
+          hostPath:
+            path: /usr/src
+            type: DirectoryOrCreate
+      
+      tolerations:
+        - operator: Exists
+---
+# =============================================================================
+# Service for Prometheus scraping
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: kepler
+  namespace: kepler
+  labels:
+    app: kepler
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9102"
+spec:
+  clusterIP: None
+  selector:
+    app: kepler
+  ports:
+    - name: metrics
+      port: 9102
+      targetPort: 9102
+---
+# =============================================================================
+# ServiceMonitor for Prometheus Operator
+# =============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kepler
+  namespace: kepler
+  labels:
+    app: kepler
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: kepler
+  namespaceSelector:
+    matchNames:
+      - kepler
+  endpoints:
+    - port: metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      path: /metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+---
+# =============================================================================
+# PrometheusRule for Energy Alerts
+# =============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kepler-alerts
+  namespace: kepler
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: kepler.rules
+      rules:
+        # Alert when node power exceeds threshold
+        - alert: HighNodePowerConsumption
+          expr: sum(rate(kepler_node_core_joules_total[5m])) by (node) > 100
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High power consumption on {{ $labels.node }}"
+            description: "Node {{ $labels.node }} is consuming more than 100W average over 10 minutes."
+        
+        # Alert for specific container high energy use
+        - alert: HighContainerEnergy
+          expr: |
+            sum(rate(kepler_container_joules_total[1h])) by (container_name, namespace) 
+            / 3600 > 50
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Container {{ $labels.container_name }} using excessive energy"
+            description: "Container {{ $labels.container_name }} in {{ $labels.namespace }} is using more than 50W average."
+        
+        # Carbon emissions tracking
+        - alert: DailyCarbonBudgetExceeded
+          expr: |
+            sum(increase(kepler_node_core_joules_total[24h])) / 3600000 * 400 > 10000
+          for: 1h
+          labels:
+            severity: info
+          annotations:
+            summary: "Daily carbon budget exceeded"
+            description: "Cluster has exceeded 10kg CO2 emissions today (at 400g/kWh)."
+---
+# =============================================================================
+# Grafana Dashboard ConfigMap (Dashboard ID 17701)
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-grafana-dashboard
+  namespace: kepler
+  labels:
+    grafana_dashboard: "1"
+data:
+  kepler-dashboard.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "description": "Kepler Energy Consumption Dashboard",
+      "editable": true,
+      "gnetId": 17701,
+      "graphTooltip": 0,
+      "title": "Kepler - Energy Monitoring",
+      "uid": "kepler-energy",
+      "version": 1,
+      "panels": [
+        {
+          "title": "Total Cluster Power (Watts)",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "sum(rate(kepler_node_core_joules_total[5m]))",
+              "legendFormat": "Total Power"
+            }
+          ]
+        },
+        {
+          "title": "Power by Namespace",
+          "type": "piechart",
+          "targets": [
+            {
+              "expr": "sum(rate(kepler_container_joules_total[5m])) by (container_namespace)",
+              "legendFormat": "{{ container_namespace }}"
+            }
+          ]
+        },
+        {
+          "title": "Energy per Container",
+          "type": "table",
+          "targets": [
+            {
+              "expr": "topk(10, sum(rate(kepler_container_joules_total[1h])) by (container_name))",
+              "legendFormat": "{{ container_name }}"
+            }
+          ]
+        }
+      ]
+    }
+---
+# =============================================================================
+# Example PromQL Queries for AI Cost Analysis
+# =============================================================================
+# These queries can be used in Grafana or Prometheus to calculate AI costs
+#
+# 1. Joules per Token (for Ollama):
+#    sum(rate(kepler_container_joules_total{container_name="ollama"}[5m])) 
+#    / 
+#    sum(rate(ollama_tokens_generated[5m]))
+#
+# 2. Cost of LLM inference per hour (at $0.15/kWh):
+#    sum(increase(kepler_container_joules_total{container_name="ollama"}[1h])) 
+#    / 3600000 * 0.15
+#
+# 3. Carbon emissions from AI workloads (gCO2):
+#    sum(increase(kepler_container_joules_total{container_name=~"ollama|langflow"}[24h])) 
+#    / 3600000 * 400
+#
+# 4. Compare efficiency of different models:
+#    sum(rate(kepler_container_joules_total{container_name="ollama"}[5m])) by (model)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-queries
+  namespace: kepler
+data:
+  ai-energy-analysis.promql: |
+    # Total AI infrastructure power consumption
+    sum(rate(kepler_container_joules_total{container_name=~"ollama|langflow|openhands"}[5m]))
+    
+    # Hourly energy cost estimate (USD at $0.15/kWh)
+    sum(increase(kepler_container_joules_total[1h])) / 3600000 * 0.15
+    
+    # Carbon footprint (gCO2/hour at 400g/kWh grid intensity)
+    sum(increase(kepler_container_joules_total[1h])) / 3600000 * 400

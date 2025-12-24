@@ -1,0 +1,92 @@
+---
+# ==============================================================================
+# ☸️ Kubernetes Control Plane Role
+# ==============================================================================
+
+# Initialize first control plane node
+- name: Check if Kubernetes is initialized
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_init
+
+- name: Initialize Kubernetes control plane
+  ansible.builtin.command: >
+    kubeadm init
+    --pod-network-cidr={{ pod_network_cidr }}
+    --service-cidr={{ service_cidr }}
+    {% if control_plane_endpoint %}--control-plane-endpoint={{ control_plane_endpoint }}{% endif %}
+    --upload-certs
+  when:
+    - not kubeadm_init.stat.exists
+    - inventory_hostname == groups['k8s_control_plane'][0]
+  register: kubeadm_init_result
+
+# Configure kubectl for root
+- name: Create .kube directory
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Copy admin.conf to root's .kube
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    owner: root
+    group: root
+    mode: '0600'
+    remote_src: true
+  when: kubeadm_init.stat.exists or kubeadm_init_result is changed
+
+# Configure kubectl for ansible user
+- name: Create .kube directory for ansible user
+  ansible.builtin.file:
+    path: /home/ansible/.kube
+    state: directory
+    owner: ansible
+    group: ansible
+    mode: '0700'
+
+- name: Copy admin.conf to ansible user's .kube
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ansible/.kube/config
+    owner: ansible
+    group: ansible
+    mode: '0600'
+    remote_src: true
+  when: kubeadm_init.stat.exists or kubeadm_init_result is changed
+
+# Generate join command for workers
+- name: Generate join command
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: join_command
+  changed_when: false
+  when: inventory_hostname == groups['k8s_control_plane'][0]
+
+- name: Save join command to file
+  ansible.builtin.copy:
+    content: "{{ join_command.stdout }}"
+    dest: /tmp/k8s_join_command
+    mode: '0600'
+  delegate_to: localhost
+  when: join_command is defined and join_command.stdout is defined
+
+# Install CNI
+- name: Install Cilium CNI
+  ansible.builtin.include_tasks: cilium.yml
+  when:
+    - inventory_hostname == groups['k8s_control_plane'][0]
+    - k8s_cni == 'cilium'
+
+# Wait for control plane to be ready
+- name: Wait for control plane pods
+  ansible.builtin.command: kubectl get pods -n kube-system -o jsonpath='{.items[*].status.phase}'
+  register: pod_status
+  until: "'Pending' not in pod_status.stdout"
+  retries: 30
+  delay: 10
+  changed_when: false
+  when: inventory_hostname == groups['k8s_control_plane'][0]

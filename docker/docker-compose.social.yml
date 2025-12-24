@@ -1,0 +1,346 @@
+# ==============================================================================
+# 📱 Social Media Automation Stack
+# ==============================================================================
+# Self-hosted social media tools for content creation, scheduling, and monitoring
+#
+# Components:
+# - Farcaster Hub (self-hosted node)
+# - YouTube Archiver (yt-dlp + web UI)
+# - Social Bot Framework (n8n automation)
+# - RSS Aggregator (FreshRSS)
+# - Link Aggregator (Shaarli)
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # Farcaster Hub - Self-hosted Farcaster Node
+  # ============================================================================
+  farcaster-hub:
+    image: farcasterxyz/hubble:latest
+    container_name: farcaster-hub
+    restart: unless-stopped
+    ports:
+      - "2281:2281"   # Gossip
+      - "2282:2282"   # RPC
+      - "2283:2283"   # HTTP API
+    environment:
+      - HUB_ID=${FARCASTER_HUB_ID:-homelab-hub}
+      - ETH_MAINNET_RPC_URL=${ETH_MAINNET_RPC_URL:-https://eth-mainnet.g.alchemy.com/v2/CHANGEME_ALCHEMY_KEY}
+      - OPTIMISM_L2_RPC_URL=${OPTIMISM_L2_RPC_URL:-https://opt-mainnet.g.alchemy.com/v2/CHANGEME_ALCHEMY_KEY}
+      - FC_NETWORK_ID=1  # Mainnet
+      - BOOTSTRAP_NODE=${FARCASTER_BOOTSTRAP:-/dns/nemes.farcaster.xyz/tcp/2282}
+    volumes:
+      - farcaster_hub_data:/hub/.rocks
+      - ${HOMELAB_DATA:-/srv/homelab}/farcaster/hub:/hub/data
+    networks:
+      - social
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2283/v1/info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # Farcaster Replicator - Database Sync
+  # ============================================================================
+  farcaster-replicator:
+    image: farcasterxyz/replicator:latest
+    container_name: farcaster-replicator
+    restart: unless-stopped
+    depends_on:
+      - farcaster-hub
+      - farcaster-postgres
+    environment:
+      - HUB_HOST=farcaster-hub
+      - HUB_PORT=2283
+      - POSTGRES_URL=postgres://farcaster:${FARCASTER_DB_PASSWORD:-CHANGEME_FC_DB_PASS}@farcaster-postgres:5432/farcaster
+      - REDIS_URL=redis://farcaster-redis:6379
+    networks:
+      - social
+    volumes:
+      - ${HOMELAB_DATA:-/srv/homelab}/farcaster/replicator:/app/data
+
+  farcaster-postgres:
+    image: postgres:16-alpine
+    container_name: farcaster-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=farcaster
+      - POSTGRES_PASSWORD=${FARCASTER_DB_PASSWORD:-CHANGEME_FC_DB_PASS}
+      - POSTGRES_DB=farcaster
+    volumes:
+      - farcaster_postgres_data:/var/lib/postgresql/data
+    networks:
+      - social
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farcaster"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  farcaster-redis:
+    image: redis:7-alpine
+    container_name: farcaster-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - farcaster_redis_data:/data
+    networks:
+      - social
+
+  # ============================================================================
+  # YouTube Archiver - yt-dlp with Web UI
+  # ============================================================================
+  youtube-archiver:
+    image: jauderho/yt-dlp:latest
+    container_name: youtube-archiver
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command: ["-c", "while true; do sleep 86400; done"]  # Keep alive for manual runs
+    volumes:
+      - ${HOMELAB_DATA:-/srv/homelab}/youtube/downloads:/downloads
+      - ${HOMELAB_DATA:-/srv/homelab}/youtube/archive:/archive
+      - ./configs/youtube/yt-dlp.conf:/etc/yt-dlp.conf:ro
+    environment:
+      - YT_DLP_CONFIG=/etc/yt-dlp.conf
+    networks:
+      - social
+
+  # MeTube - yt-dlp Web UI
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - UID=1000
+      - GID=1000
+      - DOWNLOAD_DIR=/downloads
+      - STATE_DIR=/state
+      - YTDL_OPTIONS={"writesubtitles":true,"subtitleslangs":["en"],"writethumbnail":true}
+    volumes:
+      - ${HOMELAB_DATA:-/srv/homelab}/youtube/downloads:/downloads
+      - ${HOMELAB_DATA:-/srv/homelab}/youtube/state:/state
+    networks:
+      - social
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.metube.rule=Host(`youtube.homelab.local`)"
+      - "traefik.http.services.metube.loadbalancer.server.port=8081"
+
+  # ============================================================================
+  # n8n - Workflow Automation (Social Bot Framework)
+  # ============================================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-CHANGEME_N8N_PASS}
+      - N8N_HOST=n8n.homelab.local
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.homelab.local/
+      - GENERIC_TIMEZONE=UTC
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-CHANGEME_N8N_ENCRYPT_KEY}
+      # Social API Keys (set in .env)
+      - TWITTER_API_KEY=${TWITTER_API_KEY:-}
+      - TWITTER_API_SECRET=${TWITTER_API_SECRET:-}
+      - TWITTER_ACCESS_TOKEN=${TWITTER_ACCESS_TOKEN:-}
+      - TWITTER_ACCESS_SECRET=${TWITTER_ACCESS_SECRET:-}
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:-}
+      - FARCASTER_MNEMONIC=${FARCASTER_MNEMONIC:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ${HOMELAB_DATA:-/srv/homelab}/n8n/workflows:/workflows
+    networks:
+      - social
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.homelab.local`)"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+
+  # ============================================================================
+  # FreshRSS - RSS/Atom Feed Aggregator
+  # ============================================================================
+  freshrss:
+    image: freshrss/freshrss:latest
+    container_name: freshrss
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      - TZ=UTC
+      - CRON_MIN=*/15
+      - TRUSTED_PROXY=172.16.0.0/12
+    volumes:
+      - freshrss_data:/var/www/FreshRSS/data
+      - freshrss_extensions:/var/www/FreshRSS/extensions
+    networks:
+      - social
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.freshrss.rule=Host(`rss.homelab.local`)"
+      - "traefik.http.services.freshrss.loadbalancer.server.port=80"
+
+  # ============================================================================
+  # Shaarli - Personal Link Aggregator & Bookmarks
+  # ============================================================================
+  shaarli:
+    image: ghcr.io/shaarli/shaarli:latest
+    container_name: shaarli
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    volumes:
+      - shaarli_cache:/var/www/shaarli/cache
+      - shaarli_data:/var/www/shaarli/data
+    networks:
+      - social
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.shaarli.rule=Host(`links.homelab.local`)"
+      - "traefik.http.services.shaarli.loadbalancer.server.port=80"
+
+  # ============================================================================
+  # Nitter - Alternative Twitter Frontend (Read-only)
+  # ============================================================================
+  nitter:
+    image: zedeus/nitter:latest
+    container_name: nitter
+    restart: unless-stopped
+    ports:
+      - "8084:8080"
+    volumes:
+      - ./configs/nitter/nitter.conf:/src/nitter.conf:ro
+    networks:
+      - social
+    depends_on:
+      - nitter-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nitter.rule=Host(`twitter.homelab.local`)"
+      - "traefik.http.services.nitter.loadbalancer.server.port=8080"
+
+  nitter-redis:
+    image: redis:7-alpine
+    container_name: nitter-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - nitter_redis_data:/data
+    networks:
+      - social
+
+  # ============================================================================
+  # Teddit - Alternative Reddit Frontend (Read-only)
+  # ============================================================================
+  teddit:
+    image: teddit/teddit:latest
+    container_name: teddit
+    restart: unless-stopped
+    ports:
+      - "8085:8080"
+    environment:
+      - DOMAIN=reddit.homelab.local
+      - USE_REDIS=true
+      - REDIS_HOST=teddit-redis
+      - TRUST_PROXY=true
+    networks:
+      - social
+    depends_on:
+      - teddit-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.teddit.rule=Host(`reddit.homelab.local`)"
+      - "traefik.http.services.teddit.loadbalancer.server.port=8080"
+
+  teddit-redis:
+    image: redis:7-alpine
+    container_name: teddit-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - teddit_redis_data:/data
+    networks:
+      - social
+
+  # ============================================================================
+  # Invidious - Alternative YouTube Frontend
+  # ============================================================================
+  invidious:
+    image: quay.io/invidious/invidious:latest
+    container_name: invidious
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      INVIDIOUS_CONFIG: |
+        db:
+          dbname: invidious
+          user: invidious
+          password: ${INVIDIOUS_DB_PASSWORD:-CHANGEME_INVIDIOUS_PASS}
+          host: invidious-postgres
+          port: 5432
+        check_tables: true
+        domain: invidious.homelab.local
+        https_only: true
+        external_port: 443
+    networks:
+      - social
+    depends_on:
+      - invidious-postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.invidious.rule=Host(`invidious.homelab.local`)"
+      - "traefik.http.services.invidious.loadbalancer.server.port=3000"
+
+  invidious-postgres:
+    image: postgres:14-alpine
+    container_name: invidious-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=invidious
+      - POSTGRES_PASSWORD=${INVIDIOUS_DB_PASSWORD:-CHANGEME_INVIDIOUS_PASS}
+      - POSTGRES_DB=invidious
+    volumes:
+      - invidious_postgres_data:/var/lib/postgresql/data
+    networks:
+      - social
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invidious"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  social:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+volumes:
+  farcaster_hub_data:
+  farcaster_postgres_data:
+  farcaster_redis_data:
+  n8n_data:
+  freshrss_data:
+  freshrss_extensions:
+  shaarli_cache:
+  shaarli_data:
+  nitter_redis_data:
+  teddit_redis_data:
+  invidious_postgres_data:

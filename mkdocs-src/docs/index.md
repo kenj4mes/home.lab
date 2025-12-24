@@ -95,9 +95,11 @@ graph TB
 
 ## Getting Started
 
-1. **Clone the repository:**
+1. **Clone the repository (includes ~29GB via Git LFS):**
    ```bash
-   git clone https://github.com/kenj4mes/home.lab.git
+   git lfs install
+   # CUSTOMIZE: Replace <your-github-username> with your GitHub username
+   git clone https://github.com/<your-github-username>/home.lab.git
    cd home.lab
    ```
 
@@ -110,9 +112,10 @@ graph TB
    .\homelab.ps1
    ```
 
-3. **Download offline data:**
+3. **Optional: Download additional models:**
    ```bash
-   ./scripts/download-all.sh
+   # Core data (ZIM, SDXL, Superchain) already included!
+   ./scripts/download-models.sh  # Ollama LLMs
    ```
 
 4. **Start services:**
@@ -123,5 +126,6 @@ graph TB
 ## Support
 
 - 📖 [Troubleshooting Guide](operations/troubleshooting.md)
-- 🐛 [GitHub Issues](https://github.com/kenj4mes/home.lab/issues)
-- 📜 [License](https://github.com/kenj4mes/home.lab/blob/main/LICENSE)
+<!-- CUSTOMIZE: Replace <your-github-username> with your GitHub username -->
+- 🐛 [GitHub Issues](https://github.com/<your-github-username>/home.lab/issues)
+- 📜 [License](https://github.com/<your-github-username>/home.lab/blob/main/LICENSE)

@@ -1,0 +1,56 @@
+---
+# ==============================================================================
+# 🏠 HomeLab Master Playbook
+# ==============================================================================
+# Orchestrates all infrastructure provisioning
+#
+# USAGE:
+#   Full deployment:  ansible-playbook -i inventory.yml playbooks/site.yml
+#   Specific tags:    ansible-playbook -i inventory.yml playbooks/site.yml --tags docker
+#   Specific hosts:   ansible-playbook -i inventory.yml playbooks/site.yml --limit docker_hosts
+# ==============================================================================
+
+- name: Common Configuration (All Hosts)
+  hosts: all
+  tags: [common, always]
+  roles:
+    - common
+
+- name: Docker Hosts Setup
+  hosts: docker_hosts
+  tags: [docker]
+  roles:
+    - docker
+    - docker-compose
+
+- name: Kubernetes Control Plane
+  hosts: k8s_control_plane
+  tags: [kubernetes, k8s-control]
+  roles:
+    - kubernetes/common
+    - kubernetes/control-plane
+
+- name: Kubernetes Workers
+  hosts: k8s_workers
+  tags: [kubernetes, k8s-workers]
+  roles:
+    - kubernetes/common
+    - kubernetes/worker
+
+- name: DNS Servers (Pi-hole)
+  hosts: dns_servers
+  tags: [dns, pihole]
+  roles:
+    - pihole
+
+- name: Storage Servers
+  hosts: storage_servers
+  tags: [storage]
+  roles:
+    - storage
+
+- name: Proxmox Hypervisors
+  hosts: proxmox
+  tags: [proxmox]
+  roles:
+    - proxmox

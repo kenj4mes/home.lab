@@ -1,0 +1,19 @@
+---
+# ==============================================================================
+# 🔧 Common Role - Handlers
+# ==============================================================================
+
+- name: Restart chronyd
+  ansible.builtin.systemd:
+    name: chronyd
+    state: restarted
+
+- name: Restart sshd
+  ansible.builtin.systemd:
+    name: sshd
+    state: restarted
+
+- name: Reload firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    state: reloaded

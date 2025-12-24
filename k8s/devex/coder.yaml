@@ -1,0 +1,231 @@
+# ==============================================================================
+# 💻 Coder - Cloud Development Environment Platform
+# ==============================================================================
+# Coder enables secure, self-hosted cloud development environments.
+# Developers can spin up workspaces via Terraform and connect via SSH or browser.
+#
+# FEATURES:
+#   - Terraform-provisioned workspaces (K8s pods, Docker, VMs)
+#   - SSO integration with Keycloak/OIDC
+#   - IDE flexibility (VS Code, JetBrains, SSH)
+#   - Resource quotas per user/team
+#
+# PREREQUISITES:
+#   - PostgreSQL database
+#   - Keycloak OIDC configured (optional but recommended)
+#
+# INSTALLATION (Helm):
+#   helm repo add coder-v2 https://helm.coder.com/v2
+#   helm install coder coder-v2/coder \
+#     --namespace coder --create-namespace \
+#     --values coder-values.yaml
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coder
+  labels:
+    app.kubernetes.io/name: coder
+    app.kubernetes.io/component: development
+---
+# PostgreSQL for Coder
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: coder-postgres
+  namespace: coder
+spec:
+  serviceName: coder-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coder-postgres
+  template:
+    metadata:
+      labels:
+        app: coder-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: coder
+            - name: POSTGRES_USER
+              value: coder
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coder-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coder-postgres
+  namespace: coder
+spec:
+  selector:
+    app: coder-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None
+---
+# Coder Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coder
+  namespace: coder
+  labels:
+    app: coder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coder
+  template:
+    metadata:
+      labels:
+        app: coder
+    spec:
+      serviceAccountName: coder
+      containers:
+        - name: coder
+          image: ghcr.io/coder/coder:latest
+          ports:
+            - containerPort: 7080
+              name: http
+          env:
+            - name: CODER_PG_CONNECTION_URL
+              valueFrom:
+                secretKeyRef:
+                  name: coder-secrets
+                  key: database-url
+            - name: CODER_HTTP_ADDRESS
+              value: "0.0.0.0:7080"
+            - name: CODER_ACCESS_URL
+              value: "https://coder.homelab.local"
+            # OIDC Configuration (Keycloak)
+            - name: CODER_OIDC_ISSUER_URL
+              value: "http://keycloak.identity.svc:8080/realms/homelab"
+            - name: CODER_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: coder-secrets
+                  key: oidc-client-id
+            - name: CODER_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coder-secrets
+                  key: oidc-client-secret
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 7080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coder
+  namespace: coder
+---
+# Coder needs cluster-admin to provision workspaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: coder-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: coder
+    namespace: coder
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coder
+  namespace: coder
+spec:
+  selector:
+    app: coder
+  ports:
+    - port: 80
+      targetPort: 7080
+      name: http
+  type: ClusterIP
+---
+# Ingress for Coder
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: coder
+  namespace: coder
+  annotations:
+    cert-manager.io/cluster-issuer: "homelab-ca-issuer"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - coder.homelab.local
+      secretName: coder-tls
+  rules:
+    - host: coder.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: coder
+                port:
+                  number: 80
+---
+# Secrets (CHANGEME values)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: coder-secrets
+  namespace: coder
+type: Opaque
+stringData:
+  postgres-password: "CHANGEME_CODER_DB_PASSWORD"
+  database-url: "postgres://coder:CHANGEME_CODER_DB_PASSWORD@coder-postgres:5432/coder?sslmode=disable"
+  oidc-client-id: "coder"
+  oidc-client-secret: "CHANGEME_OIDC_SECRET"

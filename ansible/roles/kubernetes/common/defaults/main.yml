@@ -1,0 +1,41 @@
+---
+# ==============================================================================
+# ☸️ Kubernetes Common Role - Default Variables
+# ==============================================================================
+
+# Kubernetes version
+k8s_version: "1.29.0"
+k8s_version_major: "1.29"
+
+# Container runtime: containerd or crio
+container_runtime: containerd
+
+# Pod network CIDR (must match CNI configuration)
+pod_network_cidr: "10.244.0.0/16"
+
+# Service network CIDR
+service_cidr: "10.96.0.0/12"
+
+# Control plane endpoint (for HA)
+control_plane_endpoint: ""
+
+# Firewall ports
+k8s_firewall_ports:
+  # Control plane
+  - 6443/tcp    # Kubernetes API server
+  - 2379/tcp    # etcd client
+  - 2380/tcp    # etcd peer
+  - 10250/tcp   # Kubelet API
+  - 10259/tcp   # kube-scheduler
+  - 10257/tcp   # kube-controller-manager
+  # Workers
+  - 10250/tcp   # Kubelet API
+  - 30000-32767/tcp  # NodePort Services
+  # CNI (Cilium)
+  - 4240/tcp    # Cilium health
+  - 4244/tcp    # Hubble
+  - 8472/udp    # VXLAN
+  # CNI (Calico)
+  - 179/tcp     # BGP
+  - 4789/udp    # VXLAN
+  - 5473/tcp    # Typha

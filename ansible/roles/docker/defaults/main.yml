@@ -1,0 +1,42 @@
+---
+# ==============================================================================
+# 🐳 Docker Role - Default Variables
+# ==============================================================================
+
+# Docker edition (ce or ee)
+docker_edition: ce
+
+# Docker version (latest or specific)
+docker_version: latest
+
+# Architecture mapping
+docker_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}"
+
+# Users to add to docker group
+docker_users:
+  - ansible
+
+# Docker daemon configuration
+docker_daemon_config:
+  storage-driver: overlay2
+  log-driver: json-file
+  log-opts:
+    max-size: "100m"
+    max-file: "3"
+  default-address-pools:
+    - base: "172.17.0.0/12"
+      size: 24
+  live-restore: true
+  userland-proxy: false
+  experimental: false
+  metrics-addr: "0.0.0.0:9323"
+  # For K8s compatibility
+  exec-opts:
+    - native.cgroupdriver=systemd
+
+# Docker Compose version
+docker_compose_version: "2.24.0"
+
+# Prune settings
+docker_prune_enabled: true
+docker_prune_schedule: "weekly"

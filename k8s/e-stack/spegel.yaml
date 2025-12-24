@@ -1,0 +1,193 @@
+# ==============================================================================
+# 🔄 Spegel - P2P Container Image Distribution
+# ==============================================================================
+# Transforms cluster into peer-to-peer registry mirror
+# Node A pulls nginx:latest -> Node B gets it from Node A (not internet)
+#
+# PREREQUISITE: Configure containerd to keep unpacked layers
+# See README.md for node configuration
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spegel
+  labels:
+    app.kubernetes.io/name: spegel
+    app.kubernetes.io/part-of: distribution
+
+---
+# ==============================================================================
+# ConfigMap for Spegel Configuration
+# ==============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spegel-config
+  namespace: spegel
+data:
+  # Registries to mirror (comma-separated)
+  registries: "docker.io,ghcr.io,quay.io,registry.k8s.io,gcr.io"
+  
+  # Mirror resolve timeout
+  resolve-timeout: "5s"
+  
+  # P2P configuration
+  p2p-port: "5001"
+  registry-port: "5000"
+
+---
+# ==============================================================================
+# Spegel DaemonSet - Runs on every node
+# ==============================================================================
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: spegel
+  namespace: spegel
+  labels:
+    app: spegel
+spec:
+  selector:
+    matchLabels:
+      app: spegel
+  template:
+    metadata:
+      labels:
+        app: spegel
+    spec:
+      # Required: Host network for P2P discovery
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      
+      # Tolerate all taints to run everywhere
+      tolerations:
+        - operator: Exists
+      
+      # Priority: Registry should start early
+      priorityClassName: system-node-critical
+      
+      serviceAccountName: spegel
+      
+      containers:
+        - name: spegel
+          image: ghcr.io/spegel-org/spegel:v0.0.23
+          args:
+            - "--containerd-sock=/run/containerd/containerd.sock"
+            - "--containerd-namespace=k8s.io"
+            - "--containerd-registry-config-path=/etc/containerd/certs.d"
+            - "--registries=docker.io,ghcr.io,quay.io,registry.k8s.io,gcr.io"
+            - "--mirror-resolve-timeout=5s"
+            - "--bootstrap-kind=kubernetes"
+          
+          ports:
+            - containerPort: 5000
+              name: registry
+              hostPort: 5000
+            - containerPort: 5001
+              name: p2p
+              hostPort: 5001
+          
+          securityContext:
+            privileged: true
+          
+          volumeMounts:
+            # Containerd socket
+            - name: containerd-sock
+              mountPath: /run/containerd/containerd.sock
+            # Containerd registry config
+            - name: containerd-config
+              mountPath: /etc/containerd/certs.d
+            # Node's var/lib for layer access
+            - name: containerd-content
+              mountPath: /var/lib/containerd
+              readOnly: true
+          
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      
+      volumes:
+        - name: containerd-sock
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+        - name: containerd-config
+          hostPath:
+            path: /etc/containerd/certs.d
+            type: DirectoryOrCreate
+        - name: containerd-content
+          hostPath:
+            path: /var/lib/containerd
+            type: Directory
+
+---
+# ==============================================================================
+# Service Account and RBAC
+# ==============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spegel
+  namespace: spegel
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spegel
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spegel
+subjects:
+  - kind: ServiceAccount
+    name: spegel
+    namespace: spegel
+roleRef:
+  kind: ClusterRole
+  name: spegel
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ==============================================================================
+# K3s-specific DaemonSet (alternative socket paths)
+# ==============================================================================
+# Uncomment if using K3s instead of standard Kubernetes
+# apiVersion: apps/v1
+# kind: DaemonSet
+# metadata:
+#   name: spegel-k3s
+#   namespace: spegel
+# spec:
+#   selector:
+#     matchLabels:
+#       app: spegel-k3s
+#   template:
+#     spec:
+#       containers:
+#         - name: spegel
+#           image: ghcr.io/spegel-org/spegel:v0.0.23
+#           args:
+#             - "--containerd-sock=/run/k3s/containerd/containerd.sock"
+#             - "--containerd-registry-config-path=/var/lib/rancher/k3s/agent/etc/containerd/certs.d"

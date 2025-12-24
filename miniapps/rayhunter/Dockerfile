@@ -45,7 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy built binaries from builder
-COPY --from=builder /app/target/release/* /app/ 2>/dev/null || true
+# Note: May fail if no release binaries exist, that's expected for dev builds
 COPY --from=builder /app/ /app/
 
 # Create data directories

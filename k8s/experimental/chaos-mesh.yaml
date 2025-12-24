@@ -1,0 +1,436 @@
+# ==============================================================================
+# Chaos Mesh - Fault Injection & Resilience Engineering
+# ==============================================================================
+# CNCF project for chaos engineering in Kubernetes
+# Injects faults at kernel level via eBPF/tc/iptables
+#
+# Features:
+#   - Pod/Network/IO/Stress chaos experiments
+#   - Workflow engine for complex scenarios
+#   - Dashboard for experiment management
+#   - Scheduled chaos runs
+#
+# Access: https://chaos.lab.local
+# Docs: https://chaos-mesh.org/docs/
+# ==============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chaos-mesh
+  labels:
+    app.kubernetes.io/name: chaos-mesh
+    app.kubernetes.io/part-of: experimental-stack
+---
+# =============================================================================
+# RBAC for Chaos Mesh
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaos-controller-manager
+  namespace: chaos-mesh
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chaos-mesh-controller
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "namespaces", "services", "endpoints", "events"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["*"]
+  - apiGroups: ["chaos-mesh.org"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chaos-mesh-controller
+subjects:
+  - kind: ServiceAccount
+    name: chaos-controller-manager
+    namespace: chaos-mesh
+roleRef:
+  kind: ClusterRole
+  name: chaos-mesh-controller
+  apiGroup: rbac.authorization.k8s.io
+---
+# =============================================================================
+# Chaos Controller Manager
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaos-controller-manager
+  namespace: chaos-mesh
+  labels:
+    app: chaos-controller-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chaos-controller-manager
+  template:
+    metadata:
+      labels:
+        app: chaos-controller-manager
+    spec:
+      serviceAccountName: chaos-controller-manager
+      containers:
+        - name: chaos-controller-manager
+          image: ghcr.io/chaos-mesh/chaos-mesh:v2.6.3
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/chaos-controller-manager
+          args:
+            - --metrics-addr=:10080
+            - --health-probe-addr=:10081
+          ports:
+            - containerPort: 10080
+              name: metrics
+            - containerPort: 10081
+              name: health
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 10081
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# =============================================================================
+# Chaos Daemon (DaemonSet - runs on every node)
+# =============================================================================
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: chaos-daemon
+  namespace: chaos-mesh
+  labels:
+    app: chaos-daemon
+spec:
+  selector:
+    matchLabels:
+      app: chaos-daemon
+  template:
+    metadata:
+      labels:
+        app: chaos-daemon
+    spec:
+      hostNetwork: true
+      hostPID: true
+      serviceAccountName: chaos-controller-manager
+      containers:
+        - name: chaos-daemon
+          image: ghcr.io/chaos-mesh/chaos-daemon:v2.6.3
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/chaos-daemon
+          args:
+            - --runtime=containerd
+            - --runtime-socket-path=/run/containerd/containerd.sock
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_PTRACE
+                - NET_ADMIN
+                - SYS_ADMIN
+          volumeMounts:
+            - name: socket-path
+              mountPath: /run/containerd/containerd.sock
+            - name: sys-path
+              mountPath: /sys
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: socket-path
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+        - name: sys-path
+          hostPath:
+            path: /sys
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+      tolerations:
+        - operator: Exists
+---
+# =============================================================================
+# Chaos Dashboard
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chaos-dashboard-pvc
+  namespace: chaos-mesh
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaos-dashboard
+  namespace: chaos-mesh
+  labels:
+    app: chaos-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chaos-dashboard
+  template:
+    metadata:
+      labels:
+        app: chaos-dashboard
+    spec:
+      serviceAccountName: chaos-controller-manager
+      containers:
+        - name: chaos-dashboard
+          image: ghcr.io/chaos-mesh/chaos-dashboard:v2.6.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - --host=0.0.0.0
+            - --port=2333
+            - --log-level=info
+          ports:
+            - containerPort: 2333
+              name: http
+          env:
+            - name: DATABASE_DRIVER
+              value: "sqlite3"
+            - name: DATABASE_DATASOURCE
+              value: "/data/core.db"
+            - name: SECURITY_MODE
+              value: "false"  # Set to true if behind auth proxy
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /api/common/config
+              port: 2333
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: chaos-dashboard-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chaos-dashboard
+  namespace: chaos-mesh
+spec:
+  selector:
+    app: chaos-dashboard
+  ports:
+    - name: http
+      port: 2333
+      targetPort: 2333
+---
+# =============================================================================
+# Ingress
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chaos-dashboard
+  namespace: chaos-mesh
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - chaos.lab.local
+      secretName: chaos-dashboard-tls
+  rules:
+    - host: chaos.lab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: chaos-dashboard
+                port:
+                  number: 2333
+---
+# =============================================================================
+# Example Chaos Experiments
+# =============================================================================
+# Example 1: Pod Kill - Random pod termination
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: pod-kill-example
+  namespace: chaos-mesh
+  annotations:
+    description: "Example: Kill a random pod in the default namespace"
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - default
+  # Disabled by default - enable when ready
+  # schedule: "@every 1h"
+---
+# Example 2: Network Chaos - Simulate latency
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: network-delay-example
+  namespace: chaos-mesh
+  annotations:
+    description: "Example: Add 100ms latency to database connections"
+spec:
+  action: delay
+  mode: all
+  selector:
+    labelSelectors:
+      app: postgres
+  delay:
+    latency: "100ms"
+    correlation: "50"
+    jitter: "25ms"
+  duration: "60s"
+---
+# Example 3: IO Chaos - Disk latency injection
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: io-delay-example
+  namespace: chaos-mesh
+  annotations:
+    description: "Example: Add 50ms delay to disk writes"
+spec:
+  action: latency
+  mode: all
+  selector:
+    labelSelectors:
+      app: database
+  volumePath: /var/lib/data
+  path: "*"
+  delay: "50ms"
+  percent: 50
+  duration: "30s"
+---
+# Example 4: Matrix Synapse Network Partition (from Architecture Report)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: synapse-db-partition
+  namespace: chaos-mesh
+  annotations:
+    description: "Simulate network partition between Synapse and PostgreSQL"
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - matrix
+    labelSelectors:
+      app: synapse
+  direction: both
+  target:
+    selector:
+      namespaces:
+        - matrix
+      labelSelectors:
+        app: postgresql
+  duration: "60s"
+---
+# =============================================================================
+# Chaos Workflow - Automated Immunity System
+# =============================================================================
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: immunity-system-weekly
+  namespace: chaos-mesh
+  annotations:
+    description: "Weekly chaos exercise to validate system resilience"
+spec:
+  entry: entry
+  templates:
+    - name: entry
+      templateType: Serial
+      children:
+        - kill-random-pod
+        - network-stress
+        - verify-recovery
+    
+    - name: kill-random-pod
+      templateType: PodChaos
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - default
+    
+    - name: network-stress
+      templateType: NetworkChaos
+      networkChaos:
+        action: delay
+        mode: all
+        selector:
+          namespaces:
+            - default
+        delay:
+          latency: "50ms"
+        duration: "30s"
+    
+    - name: verify-recovery
+      templateType: Suspend
+      suspend:
+        duration: "60s"
+  # schedules:
+  #   - name: weekly
+  #     schedule: "0 3 * * 0"  # Sunday 3 AM

@@ -278,7 +278,7 @@ KIWIX_BASE_URL="https://download.kiwix.org/zim"
 download_zim() {
     local category="$1"  # e.g., "wikipedia", "stack_exchange"
     local filename="$2"  # e.g., "wikipedia_en_all_nopic_2024-06.zim"
-    local dest_dir="${3:-${MEDIA_PATH:-/srv/Tumadre}/ZIM}"
+    local dest_dir="${3:-${MEDIA_PATH:-/srv/homelab/data}/ZIM}"
     
     local url="${KIWIX_BASE_URL}/${category}/${filename}"
     
@@ -287,7 +287,7 @@ download_zim() {
 
 # Create Kiwix library.xml from downloaded ZIM files
 create_kiwix_library() {
-    local zim_dir="${1:-${MEDIA_PATH:-/srv/Tumadre}/ZIM}"
+    local zim_dir="${1:-${MEDIA_PATH:-/srv/homelab/data}/ZIM}"
     local library_file="${zim_dir}/library.xml"
     
     if [[ ! -d "$zim_dir" ]]; then

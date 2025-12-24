@@ -72,8 +72,8 @@ if [[ ! -f "\$DEBIAN_IMG" ]]; then
 fi
 
 # Determine storage
-if pvesm status | grep -q "FlashBang"; then
-    STORAGE="FlashBang"
+if pvesm status | grep -q "fast-pool"; then
+    STORAGE="fast-pool"
 elif pvesm status | grep -q "local-zfs"; then
     STORAGE="local-zfs"
 else
@@ -123,7 +123,7 @@ qm set \$VMID \
     --ciuser homelab \
     --cipassword homelab \
     --ipconfig0 ip=dhcp \
-    --sshkeys ~/.ssh/authorized_keys 2>/dev/null || true
+    --sshkeys ~/.ssh/authorized_keys 2>/dev/null
 
 # Enable serial console
 qm set \$VMID --serial0 socket --vga serial0
@@ -139,7 +139,7 @@ echo "Waiting for VM to get IP address..."
 
 # Wait for IP
 for i in {1..60}; do
-    IP=\$(qm agent \$VMID network-get-interfaces 2>/dev/null | grep -oP '"ip-address"\s*:\s*"\K192\.168\.[0-9]+\.[0-9]+' | head -1 || true)
+    IP=\$(qm agent \$VMID network-get-interfaces 2>/dev/null | grep -oP '"ip-address"\s*:\s*"\K192\.168\.[0-9]+\.[0-9]+' | head -1)
     if [[ -n "\$IP" ]]; then
         echo "VM IP: \$IP"
         echo "\$IP" > /tmp/vm_ip

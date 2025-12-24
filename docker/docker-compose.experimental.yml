@@ -1,0 +1,207 @@
+# ==============================================================================
+# Experimental Stack - Docker Compose
+# ==============================================================================
+# Cybernetic Infrastructure Pillars for Docker environments
+# Run these alongside your core homelab services
+#
+# Includes:
+#   - LangFlow (Agentic AI Orchestration)
+#   - Kepler (Energy Observability) - Note: Limited without K8s
+#   - Rotki (Sovereign Finance)
+#
+# Note: Chaos Mesh and Kratix require Kubernetes
+#
+# Usage:
+#   docker compose -f docker-compose.experimental.yml up -d
+# ==============================================================================
+name: homelab-experimental
+
+services:
+  # ===========================================================================
+  # LangFlow - Visual LLM Chain Builder
+  # ===========================================================================
+  langflow:
+    image: langflowai/langflow:latest
+    container_name: langflow
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    environment:
+      # Database
+      - LANGFLOW_DATABASE_URL=postgresql://langflow:${LANGFLOW_DB_PASSWORD:-langflow}@langflow-postgres:5432/langflow
+      
+      # Ollama integration (air-gapped AI)
+      - OLLAMA_HOST=http://ollama:11434
+      
+      # Authentication
+      - LANGFLOW_AUTO_LOGIN=false
+      - LANGFLOW_SUPERUSER=admin
+      - LANGFLOW_SUPERUSER_PASSWORD=${LANGFLOW_ADMIN_PASSWORD:-changeme}
+      
+      # Disable cloud features for air-gap
+      - LANGFLOW_STORE=false
+    volumes:
+      - langflow_data:/app/data
+    networks:
+      - experimental
+      - homelab_default
+    depends_on:
+      langflow-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.langflow.rule=Host(`langflow.lab.local`)"
+      - "traefik.http.services.langflow.loadbalancer.server.port=7860"
+  
+  langflow-postgres:
+    image: postgres:16-alpine
+    container_name: langflow-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=langflow
+      - POSTGRES_PASSWORD=${LANGFLOW_DB_PASSWORD:-langflow}
+      - POSTGRES_DB=langflow
+    volumes:
+      - langflow_postgres:/var/lib/postgresql/data
+    networks:
+      - experimental
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # Rotki - Sovereign Crypto Portfolio Tracker
+  # ===========================================================================
+  rotki:
+    image: rotki/rotki:v1.32.2
+    container_name: rotki
+    restart: unless-stopped
+    ports:
+      - "4242:4242"
+    environment:
+      - ROTKI_ACCEPT_DOCKER_RISK=1
+      - XDG_DATA_HOME=/data
+      - ROTKI_LOGLEVEL=INFO
+      - ROTKI_API_HOST=0.0.0.0
+      - ROTKI_API_PORT=4242
+      # Connect to local Base L2 node
+      - ROTKI_ETH_RPC_ENDPOINT=http://base-node:8545
+    volumes:
+      - rotki_data:/data
+    networks:
+      - experimental
+      - homelab_default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4242/api/1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rotki.rule=Host(`rotki.lab.local`)"
+      - "traefik.http.services.rotki.loadbalancer.server.port=4242"
+
+  # ===========================================================================
+  # Scaphandre - Energy Monitoring (Docker Alternative to Kepler)
+  # ===========================================================================
+  # Note: Kepler requires Kubernetes. Scaphandre provides similar energy
+  # monitoring for Docker environments.
+  scaphandre:
+    image: hubblo/scaphandre:latest
+    container_name: scaphandre
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8080:8080"
+    command: ["prometheus"]
+    volumes:
+      - /sys/class/powercap:/sys/class/powercap:ro
+      - /proc:/proc:ro
+    networks:
+      - experimental
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8080"
+
+  # ===========================================================================
+  # n8n - Workflow Automation (Chaos Engineering Alternative)
+  # ===========================================================================
+  # While Chaos Mesh requires K8s, n8n can trigger chaos-like actions
+  # via Docker API integration
+  n8n-experimental:
+    image: n8nio/n8n:latest
+    container_name: n8n-experimental
+    restart: unless-stopped
+    ports:
+      - "5679:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-changeme}
+      - N8N_HOST=n8n.lab.local
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.lab.local
+    volumes:
+      - n8n_experimental:/home/node/.n8n
+      # Mount Docker socket for container management workflows
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - experimental
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n-exp.rule=Host(`n8n-experimental.lab.local`)"
+      - "traefik.http.services.n8n-exp.loadbalancer.server.port=5678"
+
+  # ===========================================================================
+  # Dozzle - Container Log Viewer
+  # ===========================================================================
+  # Useful for observing chaos experiment effects
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    ports:
+      - "9999:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - experimental
+    environment:
+      - DOZZLE_LEVEL=info
+      - DOZZLE_TAILSIZE=300
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`logs.lab.local`)"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  experimental:
+    name: experimental
+    driver: bridge
+  homelab_default:
+    external: true
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+volumes:
+  langflow_data:
+    name: langflow_data
+  langflow_postgres:
+    name: langflow_postgres
+  rotki_data:
+    name: rotki_data
+  n8n_experimental:
+    name: n8n_experimental
