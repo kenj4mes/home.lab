@@ -445,15 +445,29 @@ function Test-Prerequisites {
         $docker = Get-Command docker -ErrorAction SilentlyContinue
         if ($docker) {
             try {
-                docker info 2>&1 | Out-Null
-                Write-Step "Docker is installed and running" -Status SUCCESS
+                Write-Host "    Checking Docker status..." -ForegroundColor Gray -NoNewline
+                $dockerJob = Start-Job -ScriptBlock { docker info 2>&1 | Out-Null; return $true }
+                $completed = Wait-Job $dockerJob -Timeout 10
+                if ($completed) {
+                    $result = Receive-Job $dockerJob
+                    Remove-Job $dockerJob -Force
+                    Write-Host "`r" -NoNewline
+                    Write-Step "Docker is installed and running" -Status SUCCESS
+                }
+                else {
+                    Stop-Job $dockerJob -ErrorAction SilentlyContinue
+                    Remove-Job $dockerJob -Force -ErrorAction SilentlyContinue
+                    Write-Host "`r" -NoNewline
+                    Write-Step "Docker check timed out - Docker may be starting" -Status WARN
+                }
             }
             catch {
-                Write-Step "Docker is installed but not running" -Status WARN
+                Write-Step "Docker is installed but not responding" -Status WARN
             }
         }
         else {
-            Write-Step "Docker not found - will be installed" -Status WARN
+            Write-Step "Docker not found - will need to be installed" -Status WARN
+            Write-Host "    Install Docker Desktop: https://docker.com/products/docker-desktop" -ForegroundColor Yellow
         }
     }
     
