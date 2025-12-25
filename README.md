@@ -23,7 +23,7 @@
 
 ## 🎯 Technical Interview Profile
 
-> **Self-hosted infrastructure platform with 70+ integrated services, designed for offline sovereignty and multi-domain expertise.**
+> **Self-hosted infrastructure platform with 75+ integrated services, designed for offline sovereignty and multi-domain expertise.**
 
 <details>
 <summary><b>📊 Core Competencies</b></summary>
@@ -33,6 +33,7 @@
 | Container Orchestration | ★★★★★ | Senior |
 | Local AI/LLM Operations | ★★★★★ | Expert |
 | AI/ML Security Research | ★★★★★ | Expert |
+| Autonomous AI Agents | ★★★★★ | Expert |
 | Blockchain Infrastructure | ★★★★☆ | Mid-Senior |
 | Network Security | ★★★★☆ | Mid-Senior |
 | Creative AI Pipelines | ★★★★☆ | Mid-Senior |
@@ -47,7 +48,7 @@
 <summary><b>💬 Technical Q&A</b></summary>
 
 **Q: AI Capabilities?**
-> 15+ LLMs (Llama 3.2, DeepSeek-R1, Mistral, CodeLlama) via Ollama + Open WebUI. Multi-agent orchestration with LangGraph, CrewAI, AutoGen. Creative suite: SDXL, Bark TTS, Whisper, MusicGen.
+> 15+ LLMs (Llama 3.2, DeepSeek-R1, Mistral, CodeLlama) via Ollama + Open WebUI. Multi-agent orchestration with LangGraph, CrewAI, AutoGen. **Ev0 Sovereign Agent** with autonomous OODA loops, self-custody wallet, x402 commerce. **Sentry MCP** for AI-powered debugging. Creative suite: SDXL, Bark TTS, Whisper, MusicGen.
 
 **Q: AI/ML Security?**
 > Garak LLM vulnerability scanner, Counterfit adversarial testing, ART toolbox. 9 containerized security services with unified dashboard.
@@ -56,7 +57,7 @@
 > 28+ research tools: Cellular/5G (LTESniffer, srsRAN), Satellite (Starlink-FI, gr-iridium), RF analysis (FISSURE, TorchSig). ML-based signal classification.
 
 **Q: Blockchain Experience?**
-> 31 OP-Stack L2 nodes (Base, OP, Unichain, Mode, World, Lisk). Full Web3 dev with Hardhat 3, Foundry, Anvil, Blockscout.
+> 31 OP-Stack L2 nodes (Base, OP, Unichain, Mode, World, Lisk). Full Web3 dev with Hardhat 3, Foundry, Anvil, Blockscout. **Ev0 wallet integration** with CDP SDK, x402 agent-to-agent micropayments, DePIN oracle services.
 
 **Q: Security Approach?**
 > Post-Quantum TLS (Kyber768), HashiCorp Vault, cryptographic secrets, `no-new-privileges` containers. Firmware extraction APIs, side-channel analysis.
@@ -73,7 +74,8 @@
 Languages:     Docker Compose, Bash, PowerShell, Python, TypeScript, Solidity
 Platforms:     Docker, Proxmox, Windows, Linux (Debian/Ubuntu/Fedora/Arch)
 AI/ML:         Ollama, Transformers, Diffusers, ONNX, CUDA, Garak, Counterfit
-Blockchain:    OP-Stack, EVM, Hardhat, Foundry, Web3.py, ethers.js
+AI Agents:     Ev0, LangGraph, CrewAI, AutoGen, MCP Servers, Sentry MCP
+Blockchain:    OP-Stack, EVM, Hardhat, Foundry, Web3.py, ethers.js, CDP SDK, x402
 Security:      Post-Quantum Crypto, Vault, TLS 1.3, OQS-OpenSSL, Firmware Analysis
 SIGINT:        LTESniffer, srsRAN, FISSURE, TorchSig, gr-iridium, Starlink-FI
 Networking:    Nginx, Pi-hole, Cloudflare WARP, TURN/STUN, Matrix federation
