@@ -30,7 +30,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "2.3.0"
+$ScriptVersion = "2.4.0"
 $SubfolderName = "HomeLab"
 
 # ==============================================================================
@@ -183,6 +183,30 @@ $script:Config = @{
             ComposeFiles = @("docker-compose.security-research.yml")
             Scripts = @("scripts/clone-security-research.ps1")
             Warning = "⚠️ For authorized security research only - check local laws"
+        }
+        "Infrastructure" = @{
+            Name = "Infrastructure Miniapps"
+            Description = "Message Bus, Event Store, AI Orchestrator, Dashboard, Webhooks, Logs, Backups, Notifications"
+            Required = $false
+            DiskSpaceGB = 2
+            ComposeFiles = @()
+            MiniappsCompose = $true
+        }
+        "MediaAutomation" = @{
+            Name = "Media Automation (*arr Stack)"
+            Description = "Sonarr, Radarr, Prowlarr, Lidarr, Bazarr for automated media"
+            Required = $false
+            DiskSpaceGB = 5
+            ComposeFiles = @("docker-compose.arr.yml")
+            Warning = "⚠️ Requires indexers and download client"
+        }
+        "PiHole" = @{
+            Name = "Pi-hole DNS Ad-Blocking"
+            Description = "Network-wide ad blocking and DNS server"
+            Required = $false
+            DiskSpaceGB = 1
+            ComposeFiles = @("docker-compose.pihole.yml")
+            Warning = "⚠️ Requires port 53 - may conflict with existing DNS"
         }
     }
     DownloadableAssets = @{
@@ -768,6 +792,9 @@ function Start-Installation {
             "Identity" = "docker-compose.identity.yml"
             "Experimental" = "docker-compose.experimental.yml"
             "Superchain" = "docker-compose.superchain.yml"
+            "SecurityResearch" = "docker-compose.security-research.yml"
+            "MediaAutomation" = "docker-compose.arr.yml"
+            "PiHole" = "docker-compose.pihole.yml"
         }
         
         foreach ($stack in $stackMap.GetEnumerator()) {
@@ -795,6 +822,28 @@ function Start-Installation {
                     }
                     Write-Step "$($stack.Key) started" -Status SUCCESS
                 }
+            }
+        }
+        
+        # Handle Infrastructure miniapps separately (uses miniapps/docker-compose.yml)
+        if ($SelectedComponents -contains "Infrastructure") {
+            $miniappsCompose = Join-Path (Split-Path $dockerDir -Parent) "miniapps\docker-compose.yml"
+            if (Test-Path $miniappsCompose) {
+                Write-Step "Starting Infrastructure miniapps..."
+                Push-Location (Split-Path $miniappsCompose -Parent)
+                docker compose up -d 2>&1 | Out-Null
+                Pop-Location
+                Write-Step "Infrastructure miniapps started" -Status SUCCESS
+            }
+        }
+        
+        # Handle Security Research with profiles
+        if ($SelectedComponents -contains "SecurityResearch") {
+            $secResearchCompose = "docker-compose.security-research.yml"
+            if (Test-Path $secResearchCompose) {
+                Write-Step "Starting Security Research (AI Security profile)..."
+                docker compose -f $secResearchCompose --profile ai-security up -d 2>&1 | Out-Null
+                Write-Step "Security Research started" -Status SUCCESS
             }
         }
     }
