@@ -2,43 +2,120 @@
 
 > **One-click deployment - Choose your target platform**
 
-## 🎯 Choose Your Setup
+## 🎯 Choose Your Platform
 
-| Option | Best For | What You Need |
-|--------|----------|---------------|
-| **🖥️ Windows PC** | Run on your current machine | Windows 10/11 Pro |
-| **🏠 Proxmox Server** | Dedicated home server | Spare PC/server hardware |
+| Platform | Installer | Best For |
+|----------|-----------|----------|
+| **🖥️ Windows** | `install-wizard.ps1` | Local PC, Windows Server |
+| **🐧 Linux** | `bootstrap.sh` | Debian, Ubuntu, Fedora, Arch |
+| **🍎 macOS** | `install-macos.sh` | Mac Mini, MacBook, Mac Studio |
+| **📱 Android** | `install-android.sh` | Termux on phones/tablets |
+| **📱 iOS/iPad** | `INSTALL-IOS.md` | Access guide (no native install) |
+| **🏠 Proxmox** | `orchestrator.ps1` | Dedicated bare-metal server |
 
 ---
 
-## 🖥️ Option A: Run on Your Windows PC
+## 🖥️ Windows (Recommended for Beginners)
 
-**Easiest option!** Run everything locally using Docker Desktop + WSL2.
+Interactive wizard with GUI folder picker and component selection.
 
 ```powershell
 # Open PowerShell as Administrator
-cd C:\Lab\install
-.\setup-windows.ps1
+cd C:\path\to\home.lab
+.\install\install-wizard.ps1
 ```
 
-This will automatically:
-- ✅ Enable WSL2 (Windows Subsystem for Linux)
-- ✅ Install Docker Desktop
-- ✅ Install Ollama (local AI)
-- ✅ Create data directories
-- ✅ Download Wikipedia/LLMs (optional)
-- ✅ Start all services
+**Features:**
+- ✅ GUI folder browser
+- ✅ 22 selectable components
+- ✅ Automatic Docker Desktop detection
+- ✅ Ollama model downloads
+- ✅ Progress tracking
 
-**Requirements:**
-- Windows 10/11 Pro (or Education/Enterprise)
-- 16GB+ RAM recommended
-- 50GB+ free disk space
+**Requirements:** Windows 10/11, 16GB+ RAM, 50GB+ disk
 
 ---
 
-## 🏠 Option B: Dedicated Proxmox Server
+## 🐧 Linux (One-Liner)
 
-Full virtualized setup with ZFS, GPU passthrough, and enterprise features.
+```bash
+# Debian, Ubuntu, Fedora, or Arch
+curl -sSL https://raw.githubusercontent.com/kenj4mes/home.lab/main/bootstrap.sh | sudo bash
+
+# Or with profile selection
+sudo ./bootstrap.sh --full  # minimal | standard | full
+```
+
+**Features:**
+- ✅ Automatic distro detection
+- ✅ Docker + Ollama installation
+- ✅ ZIM/model downloads
+- ✅ Service auto-start
+
+---
+
+## 🍎 macOS
+
+```bash
+# Download and run
+chmod +x install/install-macos.sh
+./install/install-macos.sh --standard
+```
+
+**Features:**
+- ✅ Homebrew auto-install
+- ✅ Docker Desktop integration
+- ✅ Apple Silicon (M1/M2/M3) optimized
+- ✅ Native Ollama
+
+**Requirements:** macOS 12+, Docker Desktop for Mac
+
+---
+
+## 📱 Android (Termux)
+
+```bash
+# 1. Install Termux from F-Droid (NOT Play Store)
+# 2. Run setup storage
+termux-setup-storage
+
+# 3. Install HomeLab
+pkg install curl
+curl -sSL https://raw.githubusercontent.com/kenj4mes/home.lab/main/install/install-android.sh | bash
+```
+
+**Features:**
+- ✅ AI chat client (connects to Ollama server)
+- ✅ SSH server for remote access
+- ✅ Python AI packages
+- ✅ Offline knowledge tools
+
+**Note:** Android runs a client/lite version. Full server requires proper hardware.
+
+---
+
+## 📱 iOS / iPadOS
+
+iOS cannot run servers directly. See **[INSTALL-IOS.md](INSTALL-IOS.md)** for:
+
+- ✅ Accessing HomeLab via web browser
+- ✅ Native apps (Jellyfin, Kiwix, Grafana)
+- ✅ SSH access via Termius
+- ✅ Tailscale/VPN for remote access
+- ✅ Siri Shortcuts integration
+
+---
+
+## 🏠 Proxmox (Bare Metal Server)
+
+Full enterprise setup with ZFS and GPU passthrough.
+
+```powershell
+# From Windows orchestrator
+.\install\orchestrator.ps1 -ProxmoxIP "192.168.1.10"
+```
+
+See detailed phases below.
 
 ### 📋 Installation Phases
 

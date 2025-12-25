@@ -216,7 +216,17 @@ graph TD
 
 ## 🎯 Quick Start
 
-### 🧙 Install Wizard (Recommended)
+### 📱 Choose Your Platform
+
+| Platform | Command | Notes |
+|----------|---------|-------|
+| **🖥️ Windows** | `.\install\install-wizard.ps1` | Interactive GUI wizard |
+| **🐧 Linux** | `curl -sSL .../bootstrap.sh \| sudo bash` | Debian/Ubuntu/Fedora/Arch |
+| **🍎 macOS** | `./install/install-macos.sh` | Apple Silicon optimized |
+| **📱 Android** | `curl -sSL .../install-android.sh \| bash` | Via Termux (F-Droid) |
+| **📱 iOS** | See `install/INSTALL-IOS.md` | Access guide (client only) |
+
+### 🧙 Windows Install Wizard (Recommended)
 
 The interactive Install Wizard guides you through setup with folder selection and component choices:
 
@@ -231,20 +241,6 @@ The wizard will:
 3. Copy dependencies (ZIM files, SDR tools) if you have them
 4. Generate secure passwords and configure services
 5. Start selected services
-
-### 🖥️ Windows PC (Quick Setup)
-
-For automated setup without the wizard:
-```powershell
-# Run as Administrator
-.\install\setup-windows.ps1
-```
-Manage services with the unified CLI:
-```powershell
-.\homelab.ps1 -Action status
-.\homelab.ps1 -Action start
-.\homelab.ps1 -Action logs -Service jellyfin
-```
 
 ### 🐧 Linux / Proxmox VM
 One-liner bootstrap (Debian, Ubuntu, Fedora, Arch):
@@ -261,6 +257,26 @@ cd home.lab
 ./scripts/env-generator.sh    # Generate secure secrets
 ./scripts/init-homelab.sh     # Install everything
 ```
+
+### 🍎 macOS
+```bash
+chmod +x install/install-macos.sh
+./install/install-macos.sh --standard  # or --minimal, --full
+```
+
+### 📱 Android (Termux)
+```bash
+# Install Termux from F-Droid first
+pkg install curl
+curl -sSL https://raw.githubusercontent.com/<your-github-username>/home.lab/main/install/install-android.sh | bash
+```
+
+### 📱 iOS / iPadOS
+iOS cannot run servers natively. See [install/INSTALL-IOS.md](install/INSTALL-IOS.md) for:
+- Native apps (Jellyfin, Kiwix, Grafana)
+- Web access to Open WebUI, Portainer
+- SSH via Termius
+- Tailscale VPN setup
 
 ## 📋 Unified CLI
 
