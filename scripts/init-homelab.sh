@@ -305,6 +305,40 @@ if [[ "$INSTALL_AGENTS" == "true" ]]; then
     success "Agent framework installed"
 fi
 
+# Ev0 Sovereign Agent (autonomous AI with wallet)
+INSTALL_EV0="${INSTALL_EV0:-auto}"
+if [[ "$PROFILE" == "full" ]] || [[ "$INSTALL_EV0" == "true" ]]; then
+    INSTALL_EV0="true"
+elif [[ "$INSTALL_EV0" == "auto" ]]; then
+    if confirm "Install Ev0 Sovereign Agent? (autonomous AI with self-custody wallet, x402 payments)"; then
+        INSTALL_EV0="true"
+    else
+        INSTALL_EV0="false"
+    fi
+fi
+
+if [[ "$INSTALL_EV0" == "true" ]]; then
+    info "Ev0 Sovereign Agent will be started via docker-compose.ev0.yml"
+    success "Ev0 Sovereign Agent enabled"
+fi
+
+# Sentry MCP (AI debugging integration)
+INSTALL_SENTRY_MCP="${INSTALL_SENTRY_MCP:-auto}"
+if [[ "$PROFILE" == "full" ]] || [[ "$INSTALL_SENTRY_MCP" == "true" ]]; then
+    INSTALL_SENTRY_MCP="true"
+elif [[ "$INSTALL_SENTRY_MCP" == "auto" ]]; then
+    if confirm "Install Sentry MCP? (AI debugging integration for VS Code/Cursor/Claude)"; then
+        INSTALL_SENTRY_MCP="true"
+    else
+        INSTALL_SENTRY_MCP="false"
+    fi
+fi
+
+if [[ "$INSTALL_SENTRY_MCP" == "true" ]]; then
+    info "Sentry MCP will be started via docker-compose.sentry-mcp.yml"
+    success "Sentry MCP enabled"
+fi
+
 # TRELLIS.2 (GPU required, manual opt-in)
 if [[ "$INSTALL_TRELLIS" == "true" ]]; then
     if lspci | grep -i nvidia &> /dev/null; then
@@ -373,6 +407,19 @@ if [[ "$INSTALL_TRELLIS" == "true" ]] && lspci | grep -i nvidia &> /dev/null; th
     docker compose -f docker-compose.dev.yml up -d trellis-3d 2>/dev/null || warn "TRELLIS not started (GPU required)"
 fi
 
+# Start Ev0 Sovereign Agent if enabled
+if [[ "$INSTALL_EV0" == "true" ]]; then
+    info "Starting Ev0 Sovereign Agent..."
+    docker compose -f docker-compose.ev0.yml build 2>/dev/null || warn "Ev0 build had issues"
+    docker compose -f docker-compose.ev0.yml up -d 2>/dev/null || warn "Ev0 services not started"
+fi
+
+# Start Sentry MCP if enabled
+if [[ "$INSTALL_SENTRY_MCP" == "true" ]]; then
+    info "Starting Sentry MCP server..."
+    docker compose -f docker-compose.sentry-mcp.yml up -d 2>/dev/null || warn "Sentry MCP not started"
+fi
+
 # Wait for services
 info "Waiting for services to initialize..."
 sleep 10
@@ -418,6 +465,26 @@ if [[ "$INSTALL_AGENTS" == "true" ]]; then
             warn "  ⚠ $service not detected"
         fi
     done
+fi
+
+# Check Ev0 services if installed
+if [[ "$INSTALL_EV0" == "true" ]]; then
+    for service in ev0-agent ev0-server; do
+        if docker ps --format '{{.Names}}' | grep -q "$service"; then
+            success "  ✓ $service is running"
+        else
+            warn "  ⚠ $service not detected"
+        fi
+    done
+fi
+
+# Check Sentry MCP if installed
+if [[ "$INSTALL_SENTRY_MCP" == "true" ]]; then
+    if docker ps --format '{{.Names}}' | grep -q "sentry-mcp"; then
+        success "  ✓ sentry-mcp is running"
+    else
+        warn "  ⚠ sentry-mcp not detected"
+    fi
 fi
 
 # Show status
@@ -507,6 +574,33 @@ if [[ "$INSTALL_TRELLIS" == "true" ]]; then
     info "3D Generation:"
     echo -e "  ${GREEN}TRELLIS.2${NC}     http://${IP}:5003"
     echo -e "  ${GREEN}Web UI${NC}        http://${IP}:7860"
+fi
+
+# Show Ev0 if installed
+if [[ "$INSTALL_EV0" == "true" ]]; then
+    echo ""
+    info "Ev0 Sovereign Agent:"
+    echo -e "  ${GREEN}Agent API${NC}     http://${IP}:8787"
+    echo -e "  ${GREEN}MCP Server${NC}    stdio://ev0-mcp"
+    echo ""
+    info "Ev0 capabilities:"
+    echo -e "  ${GREEN}✓${NC} Autonomous OODA loop execution"
+    echo -e "  ${GREEN}✓${NC} Self-custody wallet (Base L2)"
+    echo -e "  ${GREEN}✓${NC} x402 agent-to-agent payments"
+    echo -e "  ${GREEN}✓${NC} Collective intelligence swarm"
+    echo -e "  ${GREEN}✓${NC} DePIN oracle services"
+fi
+
+# Show Sentry MCP if installed
+if [[ "$INSTALL_SENTRY_MCP" == "true" ]]; then
+    echo ""
+    info "Sentry MCP:"
+    echo -e "  ${GREEN}MCP Server${NC}    stdio://sentry-mcp"
+    echo ""
+    info "Sentry MCP features:"
+    echo -e "  ${GREEN}✓${NC} AI-powered error analysis"
+    echo -e "  ${GREEN}✓${NC} Root cause detection"
+    echo -e "  ${GREEN}✓${NC} VS Code / Cursor / Claude integration"
 fi
 echo ""
 
