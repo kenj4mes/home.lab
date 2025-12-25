@@ -55,7 +55,9 @@ if (-not $Username) {
         if ($gitConfig) {
             Write-Host "  Detected Git user: $gitConfig" -ForegroundColor Gray
         }
-    } catch {}
+    } catch {
+        Write-Host "  Could not detect git username automatically" -ForegroundColor Gray
+    }
     
     $Username = Read-Host "  Enter your GitHub username"
     if (-not $Username) {
