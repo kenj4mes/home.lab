@@ -91,8 +91,9 @@ Networking:    Nginx, Pi-hole, TURN/STUN, Matrix federation
 - **⛓️ Superchain Ecosystem** - 31 OP-Stack L2 nodes (Base, OP, Unichain, Mode, World, Lisk)
 - **📡 SDR & Radio Security** - IMSI catcher detection, LTESniffer, srsRAN 5G (research only)
 - **💬 Matrix Synapse** - Self-hosted encrypted messaging with Element client
-- **🧪 Experimental Stack** - LangFlow, Chaos Mesh, Kepler, Kratix, Rotki (cybernetic pillars)
-- **� GitHub Profile Analytics** - S+ rank stats, trophies, snake animation, WakaTime, automated workflows
+- **🧪 Experimental Stack** - LangFlow, Chaos Mesh, Kepler, Kratix, Rotki (cybernetic pillars)- **🔧 Infrastructure Services** - Message bus, event store, AI orchestration, unified dashboard
+- **📬 Webhook Integration** - GitHub, DockerHub, and custom webhook handlers
+- **📊 Operations Suite** - Log aggregation, backup management, multi-channel notifications- **� GitHub Profile Analytics** - S+ rank stats, trophies, snake animation, WakaTime, automated workflows
 - **�📴 Offline-First** - Complete offline operation with dependency caching
 - **🔄 Idempotent** - Safe to run multiple times
 - **🧙 Install Wizard** - Interactive setup with component selection
@@ -110,12 +111,33 @@ graph TD
         NPM --> BookStack[BookStack - Wiki]
         NPM --> WebUI[Open WebUI - AI]
         NPM --> Portainer[Portainer - Docker]
+        NPM --> Dashboard[Dashboard - Control Panel]
+    end
+
+    subgraph "Infrastructure Layer"
+        MessageBus[Message Bus :5100] --> Redis[(Redis)]
+        EventStore[Event Store :5101] --> Redis
+        Dashboard --> MessageBus
+        NotifyHub[Notification Hub :5502] --> MessageBus
+    end
+
+    subgraph "AI Orchestration"
+        AIOrch[AI Orchestrator :5200] --> Ollama[Ollama LLM]
+        AIOrch --> MessageBus
+        WebUI --> AIOrch
     end
 
     subgraph "Backend Services"
-        WebUI --> Ollama[Ollama LLM]
         BookStack --> DB[(MariaDB/MySQL)]
         qBit[qBittorrent] --> Store[(Storage)]
+        LogAgg[Log Aggregator :5500] --> Store
+        BackupMgr[Backup Manager :5501] --> Store
+    end
+
+    subgraph "Integrations"
+        WebhookHandler[Webhook Handler :5400] --> MessageBus
+        WebhookHandler --> GitHub[GitHub]
+        WebhookHandler --> DockerHub[DockerHub]
     end
 
     subgraph "Blockchain (Optional)"
@@ -126,8 +148,21 @@ graph TD
     subgraph "Monitoring (Optional)"
         Prom[Prometheus] --> Grafana[Grafana Dashboards]
         Cadvisor[cAdvisor] --> Prom
+        EventStore --> Prom
     end
 ```
+
+### System Layers
+
+| Layer | Components | Purpose |
+|-------|------------|---------|
+| **Ingress** | Nginx Proxy Manager, PQ-TLS | External access, TLS termination |
+| **Application** | Jellyfin, BookStack, WebUI | User-facing services |
+| **Infrastructure** | Message Bus, Event Store, Dashboard | Core coordination |
+| **AI** | AI Orchestrator, Ollama, Agents | Model routing & inference |
+| **Operations** | Log Aggregator, Backup Manager, Notifications | System operations |
+| **Blockchain** | Base L2, Blockscout, Wallet CLI | Web3 infrastructure |
+| **Monitoring** | Prometheus, Grafana, Loki | Observability |
 
 ## 🎯 Quick Start
 
@@ -188,11 +223,27 @@ The `homelab` CLI (available as `homelab.ps1` on Windows and `make` on Linux) pr
 | **Status** | `.\homelab.ps1 -Action status` | `make status` |
 | **Logs** | `.\homelab.ps1 -Action logs` | `make logs` |
 | **Update** | `.\homelab.ps1 -Action update` | `make update` |
-| **Health** | `.\homelab.ps1 -Action health` | - |
+| **Health** | `.\homelab.ps1 -Action health` | `make health` |
+| **Miniapps** | `.\homelab.ps1 -Action miniapps` | `make miniapps-start` |
+| **Audit** | `.\homelab.ps1 -Action audit` | `make audit` |
+| **Deploy** | `.\homelab.ps1 -Action deploy` | `make deploy` |
 | **Creative** | `.\homelab.ps1 -Action creative` | - |
 | **PQTLS** | `.\homelab.ps1 -Action pqtls` | - |
 | **Superchain** | `.\homelab.ps1 -Action superchain` | - |
 | **Experimental** | `.\homelab.ps1 -Action experimental` | - |
+
+### Infrastructure Commands
+
+| Command | Description |
+|---------|-------------|
+| `make miniapps-start` | Start all infrastructure miniapps |
+| `make miniapps-stop` | Stop all infrastructure miniapps |
+| `make miniapps-restart` | Restart all infrastructure miniapps |
+| `make miniapps-logs` | View miniapps logs |
+| `make health` | Run comprehensive health checks |
+| `make audit` | Security audit with Snyk |
+| `make deploy` | Zero-downtime deployment |
+| `make config-reload` | Hot-reload configuration files |
 
 ### Download Models
 
@@ -354,6 +405,31 @@ See [docs/SUPERCHAIN.md](docs/SUPERCHAIN.md) for complete ecosystem documentatio
 
 See [docs/EXPERIMENTAL.md](docs/EXPERIMENTAL.md) for the five cybernetic pillars.
 
+### Infrastructure Services 🔧
+
+> **Core infrastructure backbone** - Message bus, event sourcing, orchestration, and operations.
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Message Bus** | 5100 | Redis-backed pub/sub messaging system |
+| **Event Store** | 5101 | Immutable audit log with SHA-256 hash chaining |
+| **AI Orchestrator** | 5200 | Multi-model routing, ensembles & cognitive modules |
+| **Dashboard** | 5300 | Unified control panel with design system |
+| **Webhook Handler** | 5400 | GitHub, DockerHub & custom webhook integration |
+| **Log Aggregator** | 5500 | Centralized log search & analysis |
+| **Backup Manager** | 5501 | Backup orchestration & restore API |
+| **Notification Hub** | 5502 | Multi-channel alerts (Slack, Discord, ntfy, email) |
+
+```bash
+# Start all infrastructure miniapps
+make miniapps-start
+
+# Or individually
+docker compose -f miniapps/docker-compose.yml up -d message-bus event-store
+```
+
+See [docs/API.md](docs/API.md) for complete API reference and [docs/RUNBOOKS.md](docs/RUNBOOKS.md) for operational procedures.
+
 ### GitHub Profile Analytics (Optional) 📊
 
 > **S+ Rank Configuration** - Expert-tier GitHub profile optimization with automated workflows.
@@ -402,9 +478,12 @@ homelab/
 │   ├── lib/                       # Shared libraries
 │   │   ├── common.sh              # Logging, helpers
 │   │   ├── download.sh            # Download with checksum
-│   │   └── ollama.sh              # Ollama management
+│   │   ├── ollama.sh              # Ollama management
+│   │   └── config-watcher.sh      # 🔧 Hot-reload config
 │   ├── models/                    # Model catalog
 │   │   └── catalog.json           # Available models
+│   ├── security/                  # 🔧 Security scripts
+│   │   └── audit.sh               # Snyk & Trivy scanning
 │   ├── download-all.sh            # ZIM & model downloader
 │   ├── download-models.sh         # Ollama model manager
 │   ├── download-creative-models.ps1 # 🎭 Creative AI model cacher
@@ -412,6 +491,8 @@ homelab/
 │   ├── setup-github-profile.sh    # 📊 Linux/macOS profile setup
 │   ├── setup-github-profile.ps1   # 📊 Windows profile setup
 │   ├── env-generator.sh           # Secure secret generator
+│   ├── deploy.sh                  # 🔧 Zero-downtime deployment
+│   ├── health-check.sh            # 🔧 System health checks
 │   └── init-homelab.sh            # Full setup script
 ├── install/                # Platform installers
 │   ├── install-wizard.ps1         # 🧙 Interactive setup wizard
@@ -422,7 +503,14 @@ homelab/
 │   ├── grafana/                   # Grafana provisioning
 │   ├── synapse/                   # Matrix Synapse config
 │   ├── pq-nginx/                  # 🔐 Post-quantum NGINX config
-│   └── promtail/                  # Log collector config
+│   ├── promtail/                  # Log collector config
+│   ├── services/                  # 🔧 Service registry & priorities
+│   ├── ai/                        # 🔧 Model routing & ensembles
+│   ├── monitoring/                # 🔧 Dashboards & alerts
+│   ├── security/                  # 🔧 Constitution & network policies
+│   ├── integrations/              # 🔧 External service configs
+│   ├── automation/                # 🔧 Scheduled tasks
+│   └── settings.yaml              # 🔧 Global configuration
 ├── miniapps/               # Custom applications
 │   ├── base-wallet-cli/           # Blockchain wallet API
 │   ├── quantum-rng/               # Quantum random generator
@@ -439,7 +527,16 @@ homelab/
 │   ├── musicgen/                  # 🎭 AI music generation
 │   ├── video-diffusion/           # 🎭 Image-to-video generation
 │   ├── creative-dashboard/        # 🎭 Creative services UI
-│   └── superchain-dashboard/      # ⛓️ Superchain status UI
+│   ├── superchain-dashboard/      # ⛓️ Superchain status UI
+│   ├── message-bus/               # 🔧 Redis pub/sub messaging
+│   ├── event-store/               # 🔧 Immutable audit log
+│   ├── ai-orchestrator/           # 🔧 Multi-model routing
+│   ├── dashboard/                 # 🔧 Unified control panel
+│   ├── webhook-handler/           # 🔧 GitHub/DockerHub webhooks
+│   ├── log-aggregator/            # 🔧 Centralized log search
+│   ├── backup-manager/            # 🔧 Backup orchestration
+│   ├── notification-hub/          # 🔧 Multi-channel alerts
+│   └── docker-compose.yml         # 🔧 Unified miniapps compose
 ├── terraform/              # Infrastructure as Code
 │   ├── main.tf                    # Proxmox VM provisioning
 │   └── variables.tf               # Configuration variables
@@ -457,11 +554,15 @@ homelab/
 │   ├── SUPERCHAIN.md              # ⛓️ Superchain ecosystem
 │   ├── EXPERIMENTAL.md            # 🧪 Cybernetic pillars
 │   ├── GITHUB_PROFILE.md          # 📊 GitHub Profile Analytics
-│   └── MAINTENANCE.md             # Operations guide
+│   ├── MAINTENANCE.md             # Operations guide
+│   ├── README-FULL.md             # 🔧 Complete project guide
+│   ├── API.md                     # 🔧 API reference
+│   └── RUNBOOKS.md                # 🔧 Operational procedures
 ├── templates/              # Templates and examples
 │   └── PROFILE_README.md          # 📊 Expert-tier GitHub profile template
 ├── .github/                # GitHub configuration
 │   └── workflows/                 # GitHub Actions
+│       ├── ci-cd.yml              # 🔧 Full CI/CD pipeline
 │       ├── profile-metrics.yml    # 📊 lowlighter/metrics automation
 │       ├── profile-snake.yml      # 📊 Contribution snake animation
 │       ├── profile-waka-readme.yml # 📊 WakaTime stats injection
@@ -865,6 +966,9 @@ git lfs pull
 | [INSTALLATION.md](docs/INSTALLATION.md) | Complete infrastructure installation guide |
 | [REQUIREMENTS.md](docs/REQUIREMENTS.md) | A.2 Critical Software requirements matrix |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and design |
+| [API.md](docs/API.md) | 🔧 API reference for all miniapps |
+| [RUNBOOKS.md](docs/RUNBOOKS.md) | 🔧 Operational procedures & troubleshooting |
+| [README-FULL.md](docs/README-FULL.md) | 🔧 Complete project guide |
 | [GITOPS.md](docs/GITOPS.md) | ArgoCD GitOps workflow |
 | [SECURITY.md](docs/SECURITY.md) | Security hardening guide |
 | [GITHUB_PROFILE.md](docs/GITHUB_PROFILE.md) | GitHub Profile S+ rank optimization |
