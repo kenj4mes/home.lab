@@ -820,36 +820,85 @@ function Start-DependencyDownloads {
     
     # Download ZIM files for Core
     if ($SelectedComponents -contains "Core") {
-        $zimScript = Join-Path $scriptsDir "download-zim.ps1"
-        if (Test-Path $zimScript) {
-            Write-Step "Downloading Wikipedia ZIM files (~22GB)..."
-            try {
-                & $zimScript -TargetPath (Join-Path $InstallPath "data\ZIM")
-                Write-Step "ZIM files downloaded" -Status SUCCESS
+        Write-Host ""
+        Write-Host "  Which Wikipedia version would you like?" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  [1] Simple English (~500MB) - Quick download, basic content" -ForegroundColor Gray
+        Write-Host "  [2] Standard English (~22GB) - Most articles, no media" -ForegroundColor Gray
+        Write-Host "  [3] Full English (~111GB) - Complete with images" -ForegroundColor Yellow
+        Write-Host "  [4] Skip - Download later" -ForegroundColor DarkGray
+        Write-Host ""
+        $zimChoice = Read-Host "  Select (1/2/3/4, default: 2)"
+        
+        $zimDir = Join-Path $InstallPath "data\ZIM"
+        if (-not (Test-Path $zimDir)) {
+            New-Item -ItemType Directory -Path $zimDir -Force | Out-Null
+        }
+        
+        switch ($zimChoice) {
+            "1" {
+                Write-Step "Downloading Simple English Wikipedia (~500MB)..."
+                $zimUrl = "https://download.kiwix.org/zim/wikipedia/wikipedia_en_simple_all_maxi_2024-01.zim"
+                $zimDest = Join-Path $zimDir "wikipedia_en_simple.zim"
+                try {
+                    Start-BitsTransfer -Source $zimUrl -Destination $zimDest -DisplayName "Wikipedia Simple"
+                    Write-Step "Wikipedia (Simple) downloaded" -Status SUCCESS
+                }
+                catch {
+                    try {
+                        Invoke-WebRequest -Uri $zimUrl -OutFile $zimDest -UseBasicParsing
+                        Write-Step "Wikipedia (Simple) downloaded" -Status SUCCESS
+                    }
+                    catch {
+                        Write-Step "Download failed - try manually" -Status WARN
+                    }
+                }
             }
-            catch {
-                Write-Step "ZIM download failed: $($_.Exception.Message)" -Status WARN
+            "3" {
+                Write-Step "Downloading Full English Wikipedia (~111GB)..."
+                Write-Host "    ⚠️ This will take several hours!" -ForegroundColor Yellow
+                $zimUrl = "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_maxi_2024-01.zim"
+                $zimDest = Join-Path $zimDir "wikipedia_en_all_maxi.zim"
+                try {
+                    Start-BitsTransfer -Source $zimUrl -Destination $zimDest -DisplayName "Wikipedia Full" -Priority Low
+                    Write-Step "Wikipedia (Full 111GB) downloaded" -Status SUCCESS
+                }
+                catch {
+                    Write-Step "Large file download failed - use torrent or browser" -Status WARN
+                    Write-Host "    Download manually: $zimUrl" -ForegroundColor Gray
+                }
+            }
+            "4" {
+                Write-Step "Skipping ZIM download - run later with download-zim.ps1" -Status WARN
+            }
+            default {
+                Write-Step "Downloading Standard English Wikipedia (~22GB)..."
+                $zimUrl = "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_nopic_2024-01.zim"
+                $zimDest = Join-Path $zimDir "wikipedia_en_nopic.zim"
+                try {
+                    Start-BitsTransfer -Source $zimUrl -Destination $zimDest -DisplayName "Wikipedia Standard"
+                    Write-Step "Wikipedia (Standard) downloaded" -Status SUCCESS
+                }
+                catch {
+                    Write-Step "Download failed - try manually or use torrent" -Status WARN
+                    Write-Host "    Download: $zimUrl" -ForegroundColor Gray
+                }
             }
         }
-        else {
-            # Fallback: use curl/wget
-            Write-Step "Downloading essential ZIM files..."
-            $zimDir = Join-Path $InstallPath "data\ZIM"
-            if (-not (Test-Path $zimDir)) {
-                New-Item -ItemType Directory -Path $zimDir -Force | Out-Null
-            }
-            
-            # Download a smaller Wikipedia subset
-            $zimUrl = "https://download.kiwix.org/zim/wikipedia/wikipedia_en_simple_all_maxi_2024-01.zim"
-            $zimDest = Join-Path $zimDir "wikipedia_en_simple.zim"
-            
+        
+        # Also offer Stack Overflow
+        Write-Host ""
+        $dlStack = Read-Host "  Also download Stack Overflow (~5GB)? (Y/N, default: N)"
+        if ($dlStack.ToUpper() -eq "Y") {
+            Write-Step "Downloading Stack Overflow (~5GB)..."
+            $stackUrl = "https://download.kiwix.org/zim/stack_exchange/stackoverflow.com_en_all_2024-01.zim"
+            $stackDest = Join-Path $zimDir "stackoverflow.zim"
             try {
-                Write-Host "    Downloading Simple English Wikipedia (~500MB)..." -ForegroundColor Gray
-                Invoke-WebRequest -Uri $zimUrl -OutFile $zimDest -UseBasicParsing
-                Write-Step "Wikipedia (Simple) downloaded" -Status SUCCESS
+                Start-BitsTransfer -Source $stackUrl -Destination $stackDest -DisplayName "Stack Overflow"
+                Write-Step "Stack Overflow downloaded" -Status SUCCESS
             }
             catch {
-                Write-Step "Could not download ZIM files - download manually later" -Status WARN
+                Write-Step "Stack Overflow download failed" -Status WARN
             }
         }
     }
