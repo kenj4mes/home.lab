@@ -175,6 +175,43 @@ $script:Config = @{
             ComposeFiles = @()
             Scripts = @("scripts/setup-github-profile.ps1")
         }
+        "SecurityResearch" = @{
+            Name = "Security Research Stack"
+            Description = "Garak LLM scanner, Counterfit ML, firmware analysis, RF classification"
+            Required = $false
+            DiskSpaceGB = 5
+            ComposeFiles = @("docker-compose.security-research.yml")
+            Scripts = @("scripts/clone-security-research.ps1")
+            Warning = "⚠️ For authorized security research only - check local laws"
+        }
+    }
+    DownloadableAssets = @{
+        "ZIM" = @{
+            Name = "Wikipedia Offline (ZIM)"
+            Description = "Wikipedia, Stack Overflow for offline access"
+            SizeGB = 22
+            Script = "scripts/download-all.sh"
+            PSScript = "scripts/download-zim.ps1"
+        }
+        "Models" = @{
+            Name = "Ollama LLM Models"
+            Description = "Llama 3.2, DeepSeek-R1, Mistral, CodeLlama"
+            SizeGB = 26
+            Script = "scripts/download-models.sh"
+            PSScript = "scripts/download-models.ps1"
+        }
+        "CreativeAI" = @{
+            Name = "Creative AI Models"
+            Description = "SDXL, Whisper, Bark TTS, MusicGen"
+            SizeGB = 50
+            Script = "scripts/download-creative-models.ps1"
+        }
+        "SecurityResearch" = @{
+            Name = "Security Research Repositories"
+            Description = "28 security research tools (LTESniffer, Garak, etc.)"
+            SizeGB = 2
+            Script = "scripts/clone-security-research.ps1"
+        }
     }
 }
 
@@ -771,6 +808,96 @@ function Start-Installation {
     return $true
 }
 
+function Start-DependencyDownloads {
+    param(
+        [string]$InstallPath,
+        [string[]]$SelectedComponents
+    )
+    
+    Write-Step "Starting dependency downloads..." -Status PHASE
+    
+    $scriptsDir = Join-Path $InstallPath "scripts"
+    
+    # Download ZIM files for Core
+    if ($SelectedComponents -contains "Core") {
+        $zimScript = Join-Path $scriptsDir "download-zim.ps1"
+        if (Test-Path $zimScript) {
+            Write-Step "Downloading Wikipedia ZIM files (~22GB)..."
+            try {
+                & $zimScript -TargetPath (Join-Path $InstallPath "data\ZIM")
+                Write-Step "ZIM files downloaded" -Status SUCCESS
+            }
+            catch {
+                Write-Step "ZIM download failed: $($_.Exception.Message)" -Status WARN
+            }
+        }
+        else {
+            # Fallback: use curl/wget
+            Write-Step "Downloading essential ZIM files..."
+            $zimDir = Join-Path $InstallPath "data\ZIM"
+            if (-not (Test-Path $zimDir)) {
+                New-Item -ItemType Directory -Path $zimDir -Force | Out-Null
+            }
+            
+            # Download a smaller Wikipedia subset
+            $zimUrl = "https://download.kiwix.org/zim/wikipedia/wikipedia_en_simple_all_maxi_2024-01.zim"
+            $zimDest = Join-Path $zimDir "wikipedia_en_simple.zim"
+            
+            try {
+                Write-Host "    Downloading Simple English Wikipedia (~500MB)..." -ForegroundColor Gray
+                Invoke-WebRequest -Uri $zimUrl -OutFile $zimDest -UseBasicParsing
+                Write-Step "Wikipedia (Simple) downloaded" -Status SUCCESS
+            }
+            catch {
+                Write-Step "Could not download ZIM files - download manually later" -Status WARN
+            }
+        }
+    }
+    
+    # Download Ollama models for AI
+    if ($SelectedComponents -contains "AI") {
+        Write-Step "Downloading Ollama models (~26GB)..."
+        Write-Host "    Models will be pulled when Ollama starts" -ForegroundColor Gray
+        Write-Host "    Run: ollama pull llama3.2 mistral deepseek-coder" -ForegroundColor Gray
+        Write-Step "Ollama models queued for download on first run" -Status SUCCESS
+    }
+    
+    # Download Creative AI models
+    if ($SelectedComponents -contains "Creative") {
+        $creativeScript = Join-Path $scriptsDir "download-creative-models.ps1"
+        if (Test-Path $creativeScript) {
+            Write-Step "Downloading Creative AI models (~50GB)..."
+            Write-Host "    This will take a while..." -ForegroundColor Gray
+            try {
+                & $creativeScript -TargetPath (Join-Path $InstallPath "data\models")
+                Write-Step "Creative AI models downloaded" -Status SUCCESS
+            }
+            catch {
+                Write-Step "Creative model download failed - run manually later" -Status WARN
+                Write-Host "    Run: .\scripts\download-creative-models.ps1" -ForegroundColor Yellow
+            }
+        }
+    }
+    
+    # Clone Security Research repos
+    if ($SelectedComponents -contains "SecurityResearch") {
+        $securityScript = Join-Path $scriptsDir "clone-security-research.ps1"
+        if (Test-Path $securityScript) {
+            Write-Step "Cloning security research repositories (~2GB)..."
+            try {
+                & $securityScript -TargetDir (Join-Path $InstallPath "security-research")
+                Write-Step "Security research repos cloned" -Status SUCCESS
+            }
+            catch {
+                Write-Step "Security research clone failed - run manually later" -Status WARN
+                Write-Host "    Run: .\scripts\clone-security-research.ps1" -ForegroundColor Yellow
+            }
+        }
+    }
+    
+    Write-Step "Dependency downloads complete" -Status SUCCESS
+}
+
 # ==============================================================================
 # MAIN WIZARD FLOW
 # ==============================================================================
@@ -868,6 +995,16 @@ function Start-InstallWizard {
     else {
         Write-Step "No dependencies folder selected" -Status WARN
         $DependencyPath = $null
+        
+        # Offer to download dependencies
+        Write-Host ""
+        Write-Host "  Would you like to download required dependencies automatically?" -ForegroundColor Cyan
+        Write-Host "  (This requires internet connection and may take a while)" -ForegroundColor Gray
+        Write-Host ""
+        $downloadDeps = Read-Host "  Download dependencies after install? (Y/N, default: N)"
+        if ($downloadDeps.ToUpper() -eq "Y") {
+            $script:DownloadAfterInstall = $true
+        }
     }
     
     Write-Host ""
@@ -926,6 +1063,15 @@ function Start-InstallWizard {
     $startNow = Read-Host "  Start services now? (Y/N)"
     if ($startNow.ToUpper() -eq "Y") {
         Start-Installation -InstallPath $InstallPath -SelectedComponents $SelectedComponents
+    }
+    
+    # Download dependencies if requested
+    if ($script:DownloadAfterInstall) {
+        Write-Host ""
+        Write-Host "  STEP 6: Downloading Dependencies..." -ForegroundColor Magenta
+        Write-Host "  ────────────────────────────────────" -ForegroundColor DarkGray
+        
+        Start-DependencyDownloads -InstallPath $InstallPath -SelectedComponents $SelectedComponents
     }
     
     # Final Summary
