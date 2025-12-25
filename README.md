@@ -127,6 +127,7 @@ graph TD
         NPM --> WebUI[Open WebUI - AI]
         NPM --> Portainer[Portainer - Docker]
         NPM --> Dashboard[Dashboard - Control Panel]
+        NPM --> SecDash[Security Dashboard :5610]
     end
 
     subgraph "Infrastructure Layer"
@@ -140,6 +141,17 @@ graph TD
         AIOrch[AI Orchestrator :5200] --> Ollama[Ollama LLM]
         AIOrch --> MessageBus
         WebUI --> AIOrch
+    end
+
+    subgraph "Security Research"
+        Garak[Garak LLM Scanner :5600] --> AIOrch
+        Counterfit[Counterfit ML :5601] --> AIOrch
+        FirmwareAnalyzer[Firmware Analyzer :5602] --> Store
+        SignalClassifier[Signal Classifier :5604] --> Store
+        SecDash --> Garak
+        SecDash --> Counterfit
+        SecDash --> FirmwareAnalyzer
+        SecDash --> SignalClassifier
     end
 
     subgraph "Backend Services"
@@ -165,6 +177,13 @@ graph TD
         Cadvisor[cAdvisor] --> Prom
         EventStore --> Prom
     end
+
+    subgraph "SIGINT Research (Optional)"
+        FISSURE[FISSURE API :5603] --> SignalClassifier
+        ICSFuzzer[ICS Fuzzer :5605] --> SecDash
+        AutoAnalyzer[Automotive :5606] --> SecDash
+        SCAAnalyzer[SCA Analyzer :5607] --> SecDash
+    end
 ```
 
 ### System Layers
@@ -175,8 +194,10 @@ graph TD
 | **Application** | Jellyfin, BookStack, WebUI | User-facing services |
 | **Infrastructure** | Message Bus, Event Store, Dashboard | Core coordination |
 | **AI** | AI Orchestrator, Ollama, Agents | Model routing & inference |
+| **Security Research** | Garak, Counterfit, Firmware Analyzer, Signal Classifier | AI/ML security & SIGINT |
 | **Operations** | Log Aggregator, Backup Manager, Notifications | System operations |
 | **Blockchain** | Base L2, Blockscout, Wallet CLI | Web3 infrastructure |
+| **SIGINT** | FISSURE, ICS Fuzzer, Automotive, SCA | Signal intelligence research |
 | **Monitoring** | Prometheus, Grafana, Loki | Observability |
 
 ## 🎯 Quick Start
