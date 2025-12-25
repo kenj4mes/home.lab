@@ -1,0 +1,68 @@
+# ==============================================================================
+# 🔍 Sentry MCP Server - Docker Compose
+# ==============================================================================
+# Model Context Protocol server for Sentry integration
+# Enables AI agents to interact with Sentry for debugging
+# ==============================================================================
+
+name: homelab
+
+networks:
+  homelab:
+    name: homelab
+    external: true
+
+services:
+  # ============================================================================
+  # Sentry MCP Server (Stdio Mode)
+  # ============================================================================
+  sentry-mcp:
+    image: node:20-alpine
+    container_name: sentry-mcp
+    working_dir: /app
+    command: >
+      sh -c "npm install -g @sentry/mcp-server@latest && 
+             npx @sentry/mcp-server --access-token=${SENTRY_ACCESS_TOKEN:-}"
+    environment:
+      - SENTRY_ACCESS_TOKEN=${SENTRY_ACCESS_TOKEN:-}
+      - SENTRY_HOST=${SENTRY_HOST:-}  # Leave empty for SaaS, set for self-hosted
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}  # For AI-powered search tools
+    ports:
+      - "${SENTRY_MCP_PORT:-4894}:4894"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - sentry  # Only start when explicitly requested
+    labels:
+      - "homelab.service=sentry-mcp"
+      - "homelab.category=devtools"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4894/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # Sentry MCP HTTP Server (For remote connections)
+  # ============================================================================
+  sentry-mcp-http:
+    build:
+      context: ../miniapps/sentry-mcp
+      dockerfile: Dockerfile
+    container_name: sentry-mcp-http
+    environment:
+      - PORT=5173
+      - SENTRY_ACCESS_TOKEN=${SENTRY_ACCESS_TOKEN:-}
+      - SENTRY_HOST=${SENTRY_HOST:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    ports:
+      - "${SENTRY_MCP_HTTP_PORT:-5173}:5173"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - sentry-full  # Full Sentry stack with HTTP server
+    labels:
+      - "homelab.service=sentry-mcp-http"
+      - "homelab.category=devtools"

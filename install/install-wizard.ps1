@@ -167,6 +167,14 @@ $script:Config = @{
             DiskSpaceGB = 2
             ComposeFiles = @("docker-compose.identity.yml")
         }
+        "Ev0" = @{
+            Name = "Sovereign Agent (Ev0)"
+            Description = "Autonomous AI agent with self-custody wallet, x402 payments, collective intelligence"
+            Required = $false
+            DiskSpaceGB = 15
+            ComposeFiles = @("docker-compose.ev0.yml")
+            Warning = "⚠️ Requires LLM (Ollama or OpenAI API key) and optional Coinbase CDP credentials"
+        }
         "GitHubProfile" = @{
             Name = "GitHub Profile Analytics"
             Description = "S+ rank stats, trophies, snake animation, WakaTime, metrics workflows"
@@ -183,6 +191,14 @@ $script:Config = @{
             ComposeFiles = @("docker-compose.security-research.yml")
             Scripts = @("scripts/clone-security-research.ps1")
             Warning = "⚠️ For authorized security research only - check local laws"
+        }
+        "SentryMCP" = @{
+            Name = "Sentry MCP Server"
+            Description = "Model Context Protocol server for Sentry debugging integration"
+            Required = $false
+            DiskSpaceGB = 1
+            ComposeFiles = @("docker-compose.sentry-mcp.yml")
+            Warning = "⚠️ Requires Sentry Access Token (create at sentry.io/settings)"
         }
         "Infrastructure" = @{
             Name = "Infrastructure Miniapps"

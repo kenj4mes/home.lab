@@ -1,0 +1,8 @@
+# Bark TTS - Text-to-Speech API
+# Neural text-to-speech with Suno Bark
+
+flask>=3.0.0
+flask-cors>=4.0.0
+bark>=0.1.5
+scipy>=1.11.0
+numpy>=1.24.0

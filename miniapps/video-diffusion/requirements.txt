@@ -1,0 +1,12 @@
+# Stable Video Diffusion - Image to Video API
+# Stability AI video generation
+
+flask>=3.0.0
+flask-cors>=4.0.0
+diffusers>=0.25.0
+transformers>=4.36.0
+accelerate>=0.25.0
+torch>=2.0.0
+pillow>=10.0.0
+imageio>=2.33.0
+imageio-ffmpeg>=0.4.9

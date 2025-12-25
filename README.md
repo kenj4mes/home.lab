@@ -98,6 +98,8 @@ Networking:    Nginx, Pi-hole, Cloudflare WARP, TURN/STUN, Matrix federation
 - **⚛️ Quantum-Ready** - Post-quantum TLS, QRNG, and quantum simulator
 - **🌐 Web3 Development** - Hardhat 3, Foundry, Base L2 templates, and smart contract tooling
 - **🤖 AI Agents** - LangGraph, CrewAI, AutoGen, and MCP server integration
+- **🧠 Sovereign Agent (Ev0)** - Autonomous AI with self-custody wallet, x402 commerce, and OODA loop
+- **🔍 Sentry MCP** - AI debugging integration for error analysis in VS Code, Cursor, Claude
 - **🎨 3D Generation** - TRELLIS.2 image-to-3D model generation (GPU required)
 - **🎭 Creative AI Studio** - Stable Diffusion, ComfyUI, Bark TTS, Whisper, MusicGen, Video Diffusion
 - **🔐 Post-Quantum TLS** - OpenQuantumSafe NGINX with Kyber768 hybrid key exchange
@@ -188,6 +190,12 @@ graph TD
         AutoAnalyzer[Automotive :5606] --> SecDash
         SCAAnalyzer[SCA Analyzer :5607] --> SecDash
     end
+
+    subgraph "Sovereign Agent (Optional)"
+        Ev0[Sovereign Agent :5010] --> AIOrch
+        Ev0 --> Base
+        x402[x402 Gateway :3402] --> Ev0
+    end
 ```
 
 ### System Layers
@@ -197,10 +205,10 @@ graph TD
 | **Ingress** | Nginx Proxy Manager, PQ-TLS | External access, TLS termination |
 | **Application** | Jellyfin, BookStack, WebUI | User-facing services |
 | **Infrastructure** | Message Bus, Event Store, Dashboard | Core coordination |
-| **AI** | AI Orchestrator, Ollama, Agents | Model routing & inference |
+| **AI** | AI Orchestrator, Ollama, Agents, Ev0 | Model routing & inference |
 | **Security Research** | Garak, Counterfit, Firmware Analyzer, Signal Classifier | AI/ML security & SIGINT |
 | **Operations** | Log Aggregator, Backup Manager, Notifications | System operations |
-| **Blockchain** | Base L2, Blockscout, Wallet CLI | Web3 infrastructure |
+| **Blockchain** | Base L2, Blockscout, Wallet CLI, x402 | Web3 infrastructure |
 | **SIGINT** | FISSURE, ICS Fuzzer, Automotive, SCA | Signal intelligence research |
 | **Monitoring** | Prometheus, Grafana, Loki | Observability |
 
@@ -418,6 +426,45 @@ warp-cli disconnect
 | **MCP Server** | 5005 | Model Context Protocol |
 | **ChromaDB** | 8000 | Vector store for RAG |
 | **n8n** | 5678 | Workflow automation |
+
+### Sovereign Agent (Ev0) 🤖
+
+> **Autonomous AI Entity** - Self-custody wallet, collective intelligence, and OODA loop operation.
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Sovereign Agent** | 5010 | Core Python agent with OODA loop |
+| **x402 Gateway** | 3402 | HTTP 402 payment gateway |
+
+```bash
+# Start Ev0 stack
+docker compose -f docker/docker-compose.ev0.yml up -d
+
+# Or run locally
+cd miniapps/ev0
+.\start.ps1 -demo
+```
+
+See [docs/EV0.md](docs/EV0.md) for complete documentation.
+
+### Sentry MCP (Optional) 🔍
+
+> **AI Debugging Integration** - Model Context Protocol server for Sentry error analysis.
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Sentry MCP** | 4894 | Stdio MCP server for AI assistants |
+| **Sentry MCP HTTP** | 5173 | HTTP/SSE transport for remote access |
+
+```bash
+# Configure in VS Code (Ctrl+Shift+P → MCP: Add Server)
+npx @sentry/mcp-server@latest --access-token=YOUR_TOKEN
+
+# Or start via Docker
+docker compose -f docker/docker-compose.sentry-mcp.yml --profile sentry up -d
+```
+
+See [docs/SENTRY-MCP.md](docs/SENTRY-MCP.md) for setup and configuration.
 
 ### SDR & Radio Security (Optional) ⚠️
 
@@ -680,6 +727,8 @@ homelab/
 │   ├── firmware-analyzer/         # 🔬 Firmware extraction API
 │   ├── signal-classifier/         # 🔬 RF signal classification
 │   ├── security-dashboard/        # 🔬 Security research UI
+│   ├── ev0/                       # 🤖 Sovereign Agent (autonomous AI)
+│   ├── sentry-mcp/                # 🔍 Sentry MCP server
 │   └── docker-compose.yml         # 🔧 Unified miniapps compose
 ├── terraform/              # Infrastructure as Code
 │   ├── main.tf                    # Proxmox VM provisioning
@@ -698,6 +747,8 @@ homelab/
 │   ├── SUPERCHAIN.md              # ⛓️ Superchain ecosystem
 │   ├── EXPERIMENTAL.md            # 🧪 Cybernetic pillars
 │   ├── GITHUB_PROFILE.md          # 📊 GitHub Profile Analytics
+│   ├── EV0.md                     # 🤖 Sovereign Agent documentation
+│   ├── SENTRY-MCP.md              # 🔍 Sentry MCP integration
 │   ├── MAINTENANCE.md             # Operations guide
 │   ├── README-FULL.md             # 🔧 Complete project guide
 │   ├── API.md                     # 🔧 API reference

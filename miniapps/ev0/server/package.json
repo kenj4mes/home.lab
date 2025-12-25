@@ -1,0 +1,29 @@
+{
+  "name": "x402-gateway",
+  "version": "1.0.0",
+  "description": "x402 Protocol Gateway - Cloudflare Worker",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "wrangler build"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240208.0",
+    "typescript": "^5.3.0",
+    "wrangler": "^3.28.0"
+  },
+  "keywords": [
+    "x402",
+    "payments",
+    "cloudflare",
+    "workers",
+    "hono"
+  ],
+  "author": "Echo Agent",
+  "license": "MIT"
+}

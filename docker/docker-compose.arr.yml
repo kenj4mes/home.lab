@@ -12,7 +12,7 @@
 #   docker compose -f docker-compose.arr.yml up -d
 # ==============================================================================
 
-version: "3.8"
+name: homelab
 
 networks:
   homelab:

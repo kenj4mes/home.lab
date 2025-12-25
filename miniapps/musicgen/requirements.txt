@@ -1,0 +1,10 @@
+# MusicGen - AI Music Generation API
+# Meta's AudioCraft MusicGen
+
+flask>=3.0.0
+flask-cors>=4.0.0
+audiocraft>=1.3.0
+torch>=2.0.0
+torchaudio>=2.0.0
+scipy>=1.11.0
+numpy>=1.24.0

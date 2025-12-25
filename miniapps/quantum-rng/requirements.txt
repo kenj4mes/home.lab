@@ -1,0 +1,5 @@
+# Quantum Random Number Generator (QRNG)
+# Quantum-derived entropy API
+
+flask>=3.0.0
+requests>=2.31.0

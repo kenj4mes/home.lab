@@ -1,0 +1,10 @@
+name = "x402-gateway"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Uncomment and set these for production
+# [vars]
+# MY_WALLET = "0xYourWalletAddressHere"
+# JWT_SECRET = "your-256-bit-secret"
+
+# For local development, use .dev.vars file instead

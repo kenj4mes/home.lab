@@ -1,0 +1,166 @@
+# ==============================================================================
+# 🤖 Sovereign Agent Stack (Ev0) - Docker Compose
+# ==============================================================================
+# Autonomous AI agent with:
+#   - Sovereign Agent (Python) - Core OODA loop, memory, wallet
+#   - x402 Gateway (TypeScript) - HTTP 402 payment gateway
+#   - ChromaDB (Vector Store) - Already in agents stack
+# ==============================================================================
+
+name: homelab
+
+networks:
+  homelab:
+    name: homelab
+    external: true
+  ev0-internal:
+    name: ev0-internal
+    internal: true
+
+volumes:
+  ev0-data:
+  ev0-memories:
+  ev0-browser:
+  chromadb-data:
+
+services:
+  # ============================================================================
+  # Sovereign Agent - Core Python Service
+  # ============================================================================
+  sovereign-agent:
+    build:
+      context: ../miniapps/ev0
+      dockerfile: Dockerfile
+    container_name: sovereign-agent
+    environment:
+      # Identity
+      - AGENT_NAME=${EV0_AGENT_NAME:-Agent}
+      - AGENT_PERSONALITY=${EV0_PERSONALITY:-helpful, curious, autonomous}
+      
+      # Server
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      
+      # Blockchain / Wallet
+      - AGENT_WALLET_ADDRESS=${EV0_WALLET_ADDRESS:-}
+      - CDP_API_KEY_NAME=${CDP_API_KEY_NAME:-}
+      - CDP_API_KEY_PRIVATE_KEY=${CDP_API_KEY_PRIVATE_KEY:-}
+      - BASE_RPC_URL=${BASE_RPC_URL:-https://mainnet.base.org}
+      - CHAIN_ID=${CHAIN_ID:-8453}
+      
+      # x402 Gateway
+      - X402_GATEWAY_URL=http://x402-gateway:3402
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      
+      # LLM
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OLLAMA_HOST=http://ollama:11434
+      - DEFAULT_MODEL=${OLLAMA_MODEL:-llama3.2:latest}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      
+      # Memory
+      - CHROMADB_HOST=http://chromadb:8000
+      - MEMORY_COLLECTION=ev0_memories
+      
+      # Farcaster
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY:-}
+      - FARCASTER_FID=${FARCASTER_FID:-0}
+      
+      # Safety Toggles (ALL OFF BY DEFAULT)
+      - ENABLE_EVOLUTION=${EV0_ENABLE_EVOLUTION:-false}
+      - ENABLE_REPRODUCTION=${EV0_ENABLE_REPRODUCTION:-false}
+      - ENABLE_AUTO_DEPLOY=${EV0_ENABLE_AUTO_DEPLOY:-false}
+      - EVOLUTION_REQUIRE_APPROVAL=${EV0_EVOLUTION_REQUIRE_APPROVAL:-true}
+      
+      # Browser
+      - HEADLESS=true
+      - BROWSER_TYPE=chromium
+      
+      # Paths
+      - DATA_DIR=/app/data
+      - MEMORIES_DIR=/app/memories
+    volumes:
+      - ev0-data:/app/data
+      - ev0-memories:/app/memories
+      - ev0-browser:/app/data/browser
+    ports:
+      - "${EV0_AGENT_PORT:-5010}:8080"
+    networks:
+      - homelab
+      - ev0-internal
+    depends_on:
+      x402-gateway:
+        condition: service_started
+    restart: unless-stopped
+    labels:
+      - "homelab.service=sovereign-agent"
+      - "homelab.category=ai"
+      - "homelab.version=1.0.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ============================================================================
+  # x402 Gateway - HTTP Payment Gateway
+  # ============================================================================
+  x402-gateway:
+    build:
+      context: ../miniapps/ev0/server
+      dockerfile: Dockerfile
+    container_name: x402-gateway
+    environment:
+      - PORT=3402
+      - AGENT_URL=http://sovereign-agent:8080
+      - USDC_ADDRESS=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+      - WALLET_ADDRESS=${EV0_WALLET_ADDRESS:-}
+      - PRIVATE_KEY=${EV0_WALLET_PRIVATE_KEY:-}
+      - CHAIN_ID=${CHAIN_ID:-8453}
+      - RPC_URL=${BASE_RPC_URL:-https://mainnet.base.org}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+    ports:
+      - "${EV0_GATEWAY_PORT:-3402}:3402"
+    networks:
+      - homelab
+      - ev0-internal
+    restart: unless-stopped
+    labels:
+      - "homelab.service=x402-gateway"
+      - "homelab.category=payments"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3402/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # ChromaDB - Vector Store (if not already in agents stack)
+  # ============================================================================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - ANONYMIZED_TELEMETRY=false
+      - ALLOW_RESET=true
+    volumes:
+      - chromadb-data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    networks:
+      - homelab
+      - ev0-internal
+    restart: unless-stopped
+    labels:
+      - "homelab.service=chromadb"
+      - "homelab.category=database"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - chromadb  # Only if not using agents stack chromadb

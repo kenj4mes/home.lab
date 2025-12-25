@@ -1,0 +1,165 @@
+# =============================================================================
+# x402 Stack
+# =============================================================================
+# Services:
+#   - x402-gateway: Payment gateway
+#   - ollama: Local LLM inference
+#   - agent: x402 client (optional)
+#
+# Usage:
+#   docker-compose up -d
+#   docker-compose logs -f x402-gateway
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # x402 Gateway - Payment Gateway for AI Agents
+  # ===========================================================================
+  x402-gateway:
+    build:
+      context: ./x402-gateway
+      dockerfile: Dockerfile
+    container_name: x402-gateway
+    restart: unless-stopped
+    ports:
+      - "3402:3000"
+    environment:
+      # Your wallet to receive payments
+      - MY_WALLET=${X402_WALLET_ADDRESS:-0x0000000000000000000000000000000000000000}
+      # JWT signing secret (generate with: openssl rand -hex 32)
+      - JWT_SECRET=${X402_JWT_SECRET:-change-this-to-a-secure-secret}
+      # OG Users (comma-separated)
+      - OG_USERS=${X402_OG_USERS:-homelab-admin,og-member-001}
+      # Network
+      - NETWORK=base
+      - NODE_ENV=production
+    networks:
+      - homelab
+    labels:
+      # Traefik reverse proxy (if using)
+      - "traefik.enable=true"
+      - "traefik.http.routers.x402.rule=Host(`x402.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.x402.entrypoints=websecure"
+      - "traefik.http.routers.x402.tls.certresolver=letsencrypt"
+      - "traefik.http.services.x402.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================================================
+  # Ollama - Local LLM Inference
+  # ===========================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - homelab
+    # GPU support (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================================================
+  # Agent - x402 Client (Optional)
+  # ===========================================================================
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: x402-agent
+    restart: unless-stopped
+    depends_on:
+      - ollama
+      - x402-gateway
+    volumes:
+      - agent_data:/app/data
+    environment:
+      # Ollama connection
+      - OLLAMA_HOST=http://ollama:11434
+      # Coinbase AgentKit credentials
+      - CDP_API_KEY_NAME=${CDP_API_KEY_NAME}
+      - CDP_API_KEY_PRIVATE=${CDP_API_KEY_PRIVATE}
+      # x402 Gateway
+      - X402_SERVER_URL=http://x402-gateway:3000
+      - X402_CLIENT_ID=agent
+      # OpenAI (fallback if Ollama unavailable)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Social (optional)
+      - FARCASTER_MNEMONIC=${FARCASTER_MNEMONIC:-}
+    networks:
+      - homelab
+    # Only enable if you want the agent running
+    profiles:
+      - agent
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================================================
+  # ChromaDB - Vector Database (Optional)
+  # ===========================================================================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    restart: unless-stopped
+    volumes:
+      - chroma_data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    networks:
+      - homelab
+    profiles:
+      - agent
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  homelab:
+    external: true
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  ollama_data:
+    driver: local
+  agent_data:
+    driver: local
+  chroma_data:
+    driver: local

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install and configure Cloudflare WARP (1.1.1.1) for HomeLab
 .DESCRIPTION
@@ -131,7 +131,7 @@ function Show-WarpStatus {
     if (Test-Path $warpCli) {
         Write-Host ""
         Write-Host "  Cloudflare WARP Status:" -ForegroundColor Cyan
-        Write-Host "  ────────────────────────" -ForegroundColor DarkGray
+        Write-Host "  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ" -ForegroundColor DarkGray
         & $warpCli status
         Write-Host ""
     }
@@ -139,13 +139,13 @@ function Show-WarpStatus {
 
 # Main execution
 Write-Host ""
-Write-Host "  ╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "  ║           🌐 Cloudflare WARP (1.1.1.1) Installer              ║" -ForegroundColor Cyan
-Write-Host "  ║                                                               ║" -ForegroundColor Cyan
-Write-Host "  ║   • Encrypted DNS without breaking Docker                     ║" -ForegroundColor Cyan
-Write-Host "  ║   • Free unlimited bandwidth                                  ║" -ForegroundColor Cyan
-Write-Host "  ║   • Localhost access preserved                                ║" -ForegroundColor Cyan
-Write-Host "  ╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "  ÔòöÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòù" -ForegroundColor Cyan
+Write-Host "  Ôòæ           ­ƒîÉ Cloudflare WARP (1.1.1.1) Installer              Ôòæ" -ForegroundColor Cyan
+Write-Host "  Ôòæ                                                               Ôòæ" -ForegroundColor Cyan
+Write-Host "  Ôòæ   - Encrypted DNS without breaking Docker                     Ôòæ" -ForegroundColor Cyan
+Write-Host "  Ôòæ   - Free unlimited bandwidth                                  Ôòæ" -ForegroundColor Cyan
+Write-Host "  Ôòæ   - Localhost access preserved                                Ôòæ" -ForegroundColor Cyan
+Write-Host "  ÔòÜÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòØ" -ForegroundColor Cyan
 Write-Host ""
 
 if ($ConfigureOnly) {
@@ -171,9 +171,9 @@ if (Test-WarpInstalled) {
 # Prompt for installation
 if (-not $Silent) {
     Write-Host "  Cloudflare WARP provides:" -ForegroundColor White
-    Write-Host "    • Encrypted DNS (1.1.1.1)" -ForegroundColor Gray
-    Write-Host "    • Privacy without VPN overhead" -ForegroundColor Gray
-    Write-Host "    • Full Docker/localhost compatibility" -ForegroundColor Gray
+    Write-Host "    - Encrypted DNS (1.1.1.1)" -ForegroundColor Gray
+    Write-Host "    - Privacy without VPN overhead" -ForegroundColor Gray
+    Write-Host "    - Full Docker/localhost compatibility" -ForegroundColor Gray
     Write-Host ""
     
     $install = Read-Host "Install Cloudflare WARP? (Y/N, default: Y)"
@@ -190,11 +190,11 @@ if (Install-Warp) {
     Show-WarpStatus
     
     Write-Host ""
-    Write-Host "  ✅ Cloudflare WARP is now protecting your DNS" -ForegroundColor Green
-    Write-Host "  ✅ Docker and localhost will work normally" -ForegroundColor Green
+    Write-Host "  [OK] Cloudflare WARP is now protecting your DNS" -ForegroundColor Green
+    Write-Host "  [OK] Docker and localhost will work normally" -ForegroundColor Green
     Write-Host ""
     Write-Host "  To manage WARP:" -ForegroundColor Cyan
-    Write-Host "    • Open the 1.1.1.1 app from system tray" -ForegroundColor Gray
-    Write-Host "    • Or use: warp-cli status / connect / disconnect" -ForegroundColor Gray
+    Write-Host "    - Open the 1.1.1.1 app from system tray" -ForegroundColor Gray
+    Write-Host "    - Or use: warp-cli status / connect / disconnect" -ForegroundColor Gray
     Write-Host ""
 }

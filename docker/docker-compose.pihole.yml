@@ -15,7 +15,11 @@
 #   2. Or configure individual devices to use this DNS
 # ==============================================================================
 
-version: "3.8"
+name: homelab
+
+networks:
+  homelab:
+    external: true
 
 services:
   pihole:

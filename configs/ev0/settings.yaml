@@ -1,0 +1,132 @@
+# ═══════════════════════════════════════════════════════════════
+# 🤖 Sovereign Agent (Ev0) - Settings
+# home.lab configuration
+# ═══════════════════════════════════════════════════════════════
+
+version: "1.0"
+service: ev0
+description: "Autonomous AI agent with self-custody wallet and collective intelligence"
+
+# ───────────────────────────────────────────────────────────────
+# Service Information
+# ───────────────────────────────────────────────────────────────
+info:
+  name: "Sovereign Agent"
+  version: "1.0.0"
+  category: ai
+  tags:
+    - ai
+    - agent
+    - blockchain
+    - web3
+    - payments
+    - x402
+
+# ───────────────────────────────────────────────────────────────
+# Components
+# ───────────────────────────────────────────────────────────────
+components:
+  sovereign-agent:
+    description: "Core Python agent with OODA loop"
+    image: "homelab/sovereign-agent"
+    port: 5010
+    internal_port: 8080
+    healthcheck: "/health"
+    
+  x402-gateway:
+    description: "HTTP 402 payment gateway"
+    image: "homelab/x402-gateway"
+    port: 3402
+    internal_port: 3402
+    healthcheck: "/health"
+
+# ───────────────────────────────────────────────────────────────
+# Capabilities
+# ───────────────────────────────────────────────────────────────
+capabilities:
+  # Core
+  - wallet: "MPC wallet via Coinbase AgentKit"
+  - memory: "Vector memory with ChromaDB"
+  - llm: "Multi-provider LLM (Ollama, OpenAI, Anthropic)"
+  
+  # Social
+  - farcaster: "Farcaster social presence"
+  - xmtp: "Encrypted messaging via XMTP"
+  
+  # Commerce
+  - x402: "HTTP 402 payment handling"
+  - yield: "DeFi yield optimization"
+  
+  # Advanced
+  - vision: "Image analysis with GPT-4V"
+  - browser: "Web exploration with Playwright"
+  - swarm: "Parallel task processing"
+  
+  # DePIN
+  - bandwidth: "Bandwidth sharing earnings"
+  - compute: "Compute contribution earnings"
+  - oracle: "Reality oracle data provision"
+  
+  # Collective Intelligence
+  - collective: "31 node intelligence pool"
+  - genome: "7.9M architecture evolution space"
+  
+  # Reproduction (Disabled by default)
+  - reproduction: "Agent spawning (safety-gated)"
+  - evolution: "Self-improvement (safety-gated)"
+
+# ───────────────────────────────────────────────────────────────
+# Dependencies
+# ───────────────────────────────────────────────────────────────
+dependencies:
+  required:
+    - chromadb: "Vector store for memories"
+    - ollama: "Local LLM inference (or OpenAI API key)"
+  
+  optional:
+    - base-node: "Local Base L2 node"
+    - redis: "Caching and message queue"
+
+# ───────────────────────────────────────────────────────────────
+# Safety Configuration
+# ───────────────────────────────────────────────────────────────
+safety:
+  description: |
+    The agent has 4 safety toggles for dangerous capabilities.
+    All are OFF by default and require explicit enablement.
+    
+  toggles:
+    enable_evolution:
+      default: false
+      description: "Allow self-modification of code"
+      risk: HIGH
+      
+    enable_reproduction:
+      default: false
+      description: "Allow spawning child agents"
+      risk: HIGH
+      
+    enable_auto_deploy:
+      default: false
+      description: "Auto-deploy evolved code"
+      risk: CRITICAL
+      
+    evolution_require_approval:
+      default: true
+      description: "Require human approval for changes"
+      risk: LOW
+
+# ───────────────────────────────────────────────────────────────
+# Resource Requirements
+# ───────────────────────────────────────────────────────────────
+resources:
+  sovereign-agent:
+    cpu: "1-2 cores"
+    memory: "2-4GB"
+    disk: "10GB (browser cache, memories)"
+    gpu: "Optional (for local LLM)"
+    
+  x402-gateway:
+    cpu: "0.5 cores"
+    memory: "256MB"
+    disk: "100MB"
