@@ -12,6 +12,9 @@
 | **📱 Android** | `install-android.sh` | Termux on phones/tablets |
 | **📱 iOS/iPad** | `INSTALL-IOS.md` | Access guide (no native install) |
 | **🏠 Proxmox** | `orchestrator.ps1` | Dedicated bare-metal server |
+| **🔧 Native** | `install-native.sh` | No Docker, bare-metal Linux |
+
+> **New!** Want to run services directly on your OS without Docker? See **[Native vs Docker Guide](NATIVE-VS-DOCKER.md)**
 
 ---
 
@@ -116,6 +119,44 @@ Full enterprise setup with ZFS and GPU passthrough.
 ```
 
 See detailed phases below.
+
+---
+
+## 🔧 Native Linux (No Docker)
+
+For users who prefer running services directly on the OS without containers.
+
+```bash
+# Download and run
+curl -sSL https://raw.githubusercontent.com/kenj4mes/home.lab/main/install/install-native.sh | sudo bash
+
+# Or with profile selection
+sudo ./install/install-native.sh --minimal   # Ollama only
+sudo ./install/install-native.sh --standard  # + WebUI, Kiwix
+sudo ./install/install-native.sh --full      # + All models
+```
+
+**Features:**
+- ✅ No Docker required
+- ✅ Native Ollama + Open WebUI
+- ✅ Kiwix for offline Wikipedia
+- ✅ Nginx reverse proxy
+- ✅ Systemd service management
+
+**Best For:**
+- 🥧 Raspberry Pi / low-spec hardware
+- 📚 Learning Linux administration
+- 🔒 Air-gapped systems
+- 🎯 Simple AI-only setup
+
+**Trade-offs:**
+- ⚠️ Fewer services available (~10 vs 75+)
+- ⚠️ Manual updates per-service
+- ⚠️ More complex troubleshooting
+
+**See:** [NATIVE-VS-DOCKER.md](NATIVE-VS-DOCKER.md) for detailed comparison
+
+---
 
 ### 📋 Installation Phases
 

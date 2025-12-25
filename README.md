@@ -225,6 +225,9 @@ graph TD
 | **🍎 macOS** | `./install/install-macos.sh` | Apple Silicon optimized |
 | **📱 Android** | `curl -sSL .../install-android.sh \| bash` | Via Termux (F-Droid) |
 | **📱 iOS** | See `install/INSTALL-IOS.md` | Access guide (client only) |
+| **🔧 Native** | `./install/install-native.sh` | No Docker, bare-metal Linux |
+
+> **💡 Native vs Docker:** Want to skip Docker? See [`install/NATIVE-VS-DOCKER.md`](install/NATIVE-VS-DOCKER.md) for comparison.
 
 ### 🧙 Windows Install Wizard (Recommended)
 
