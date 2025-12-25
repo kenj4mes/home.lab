@@ -91,9 +91,14 @@ Networking:    Nginx, Pi-hole, TURN/STUN, Matrix federation
 - **⛓️ Superchain Ecosystem** - 31 OP-Stack L2 nodes (Base, OP, Unichain, Mode, World, Lisk)
 - **📡 SDR & Radio Security** - IMSI catcher detection, LTESniffer, srsRAN 5G (research only)
 - **💬 Matrix Synapse** - Self-hosted encrypted messaging with Element client
-- **🧪 Experimental Stack** - LangFlow, Chaos Mesh, Kepler, Kratix, Rotki (cybernetic pillars)- **🔧 Infrastructure Services** - Message bus, event store, AI orchestration, unified dashboard
+- **🧪 Experimental Stack** - LangFlow, Chaos Mesh, Kepler, Kratix, Rotki (cybernetic pillars)
+- **🔧 Infrastructure Services** - Message bus, event store, AI orchestration, unified dashboard
 - **📬 Webhook Integration** - GitHub, DockerHub, and custom webhook handlers
-- **📊 Operations Suite** - Log aggregation, backup management, multi-channel notifications- **� GitHub Profile Analytics** - S+ rank stats, trophies, snake animation, WakaTime, automated workflows
+- **📊 Operations Suite** - Log aggregation, backup management, multi-channel notifications
+- **🔬 Security Research** - LLM vulnerability scanning, firmware analysis, RF signal classification
+- **🛡️ AI/ML Security** - Garak LLM scanner, Counterfit adversarial testing, ART toolbox
+- **📡 Signal Intelligence** - 28+ cloned research tools for cellular, satellite, and RF analysis
+- **📊 GitHub Profile Analytics** - S+ rank stats, trophies, snake animation, WakaTime, automated workflows
 - **�📴 Offline-First** - Complete offline operation with dependency caching
 - **🔄 Idempotent** - Safe to run multiple times
 - **🧙 Install Wizard** - Interactive setup with component selection
@@ -430,6 +435,35 @@ docker compose -f miniapps/docker-compose.yml up -d message-bus event-store
 
 See [docs/API.md](docs/API.md) for complete API reference and [docs/RUNBOOKS.md](docs/RUNBOOKS.md) for operational procedures.
 
+### Security Research Stack 🔬
+
+> **Advanced Signal Intelligence & AI Security** - LLM vulnerability scanning, firmware analysis, RF classification.
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Garak** | 5600 | LLM vulnerability scanner ("nmap for LLMs") |
+| **Counterfit** | 5601 | ML adversarial attack framework |
+| **Firmware Analyzer** | 5602 | Universal firmware extraction API |
+| **FISSURE API** | 5603 | RF signal analysis (headless) |
+| **Signal Classifier** | 5604 | ML-based modulation/protocol ID |
+| **ICS Fuzzer** | 5605 | Industrial protocol fuzzing |
+| **Automotive Analyzer** | 5606 | SOME/IP, UDS, CAN analysis |
+| **SCA Analyzer** | 5607 | Side-channel trace analysis |
+| **Security Dashboard** | 5610 | Unified security research UI |
+
+```powershell
+# Start AI security tools
+docker compose -f docker/docker-compose.security-research.yml --profile ai-security up -d
+
+# Start firmware analysis
+docker compose -f docker/docker-compose.security-research.yml --profile firmware-analysis up -d
+
+# Clone all 28 research repositories for offline access
+.\scripts\clone-security-research.ps1 -TargetDir ".\security-research"
+```
+
+⚠️ **Legal Notice**: These tools are for authorized security research only. See [docs/SECURITY-RESEARCH.md](docs/SECURITY-RESEARCH.md) for complete documentation.
+
 ### GitHub Profile Analytics (Optional) 📊
 
 > **S+ Rank Configuration** - Expert-tier GitHub profile optimization with automated workflows.
@@ -473,6 +507,7 @@ homelab/
 │   ├── docker-compose.pqtls.yml    # 🔐 Post-Quantum TLS
 │   ├── docker-compose.superchain.yml # ⛓️ Superchain L2 nodes
 │   ├── docker-compose.experimental.yml # 🧪 Experimental Stack
+│   ├── docker-compose.security-research.yml # 🔬 Security Research
 │   └── .env.example                # Environment template
 ├── scripts/                # Automation scripts
 │   ├── lib/                       # Shared libraries
@@ -493,6 +528,8 @@ homelab/
 │   ├── env-generator.sh           # Secure secret generator
 │   ├── deploy.sh                  # 🔧 Zero-downtime deployment
 │   ├── health-check.sh            # 🔧 System health checks
+│   ├── clone-security-research.ps1 # 🔬 Clone research repos (Windows)
+│   ├── clone-security-research.sh  # 🔬 Clone research repos (Linux)
 │   └── init-homelab.sh            # Full setup script
 ├── install/                # Platform installers
 │   ├── install-wizard.ps1         # 🧙 Interactive setup wizard
@@ -510,7 +547,8 @@ homelab/
 │   ├── security/                  # 🔧 Constitution & network policies
 │   ├── integrations/              # 🔧 External service configs
 │   ├── automation/                # 🔧 Scheduled tasks
-│   └── settings.yaml              # 🔧 Global configuration
+│   ├── settings.yaml              # 🔧 Global configuration
+│   └── security-research/         # 🔬 Research tool configs
 ├── miniapps/               # Custom applications
 │   ├── base-wallet-cli/           # Blockchain wallet API
 │   ├── quantum-rng/               # Quantum random generator
@@ -536,6 +574,10 @@ homelab/
 │   ├── log-aggregator/            # 🔧 Centralized log search
 │   ├── backup-manager/            # 🔧 Backup orchestration
 │   ├── notification-hub/          # 🔧 Multi-channel alerts
+│   ├── garak/                     # 🔬 LLM vulnerability scanner
+│   ├── firmware-analyzer/         # 🔬 Firmware extraction API
+│   ├── signal-classifier/         # 🔬 RF signal classification
+│   ├── security-dashboard/        # 🔬 Security research UI
 │   └── docker-compose.yml         # 🔧 Unified miniapps compose
 ├── terraform/              # Infrastructure as Code
 │   ├── main.tf                    # Proxmox VM provisioning
@@ -557,7 +599,8 @@ homelab/
 │   ├── MAINTENANCE.md             # Operations guide
 │   ├── README-FULL.md             # 🔧 Complete project guide
 │   ├── API.md                     # 🔧 API reference
-│   └── RUNBOOKS.md                # 🔧 Operational procedures
+│   ├── RUNBOOKS.md                # 🔧 Operational procedures
+│   └── SECURITY-RESEARCH.md       # 🔬 Security research tools
 ├── templates/              # Templates and examples
 │   └── PROFILE_README.md          # 📊 Expert-tier GitHub profile template
 ├── .github/                # GitHub configuration
@@ -950,9 +993,10 @@ git lfs pull
 
 ### Additional Downloads (Optional)
 | Data | Size | Command |
-|------|------|---------||
+|------|------|---------|
 | **Ollama Models** | ~26 GB | `.\scripts\download-models.ps1` |
 | **More Creative AI** | ~50 GB | `.\scripts\download-creative-models.ps1` |
+| **Security Research Repos** | ~2 GB | `.\scripts\clone-security-research.ps1` |
 
 📋 See **[DATA_SOURCES.md](DATA_SOURCES.md)** for additional download sources.
 
@@ -971,6 +1015,7 @@ git lfs pull
 | [README-FULL.md](docs/README-FULL.md) | 🔧 Complete project guide |
 | [GITOPS.md](docs/GITOPS.md) | ArgoCD GitOps workflow |
 | [SECURITY.md](docs/SECURITY.md) | Security hardening guide |
+| [SECURITY-RESEARCH.md](docs/SECURITY-RESEARCH.md) | 🔬 Security research tools & SIGINT |
 | [GITHUB_PROFILE.md](docs/GITHUB_PROFILE.md) | GitHub Profile S+ rank optimization |
 | [Ansible README](ansible/README.md) | Automation playbook documentation |
 | [K8s Infrastructure](k8s/infrastructure/README.md) | Kubernetes infrastructure components |

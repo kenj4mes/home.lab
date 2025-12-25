@@ -1,0 +1,290 @@
+# Security Research Stack
+# Advanced signal intelligence, hardware assurance, and AI security tools
+# WARNING: Many tools require specialized hardware (SDRs, fault injection equipment)
+# Use responsibly and in accordance with local laws
+
+networks:
+  homelab:
+    external: true
+
+volumes:
+  garak-data:
+  counterfit-data:
+  unblob-data:
+  fissure-data:
+  firmware-samples:
+  rf-captures:
+  model-artifacts:
+
+services:
+  # ============================================================================
+  # AI/ML Security Tools
+  # ============================================================================
+  
+  # Garak - LLM Vulnerability Scanner ("nmap for LLMs")
+  # Repository: https://github.com/NVIDIA/garak
+  garak:
+    image: python:3.11-slim
+    container_name: garak
+    build:
+      context: ../miniapps/garak
+      dockerfile: Dockerfile
+    volumes:
+      - garak-data:/app/data
+      - model-artifacts:/app/models
+    environment:
+      - GARAK_REPORT_DIR=/app/data/reports
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+    ports:
+      - "5600:5600"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - ai-security
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=LLM vulnerability scanner"
+
+  # Counterfit - ML Model Security Assessment
+  # Repository: https://github.com/Azure/counterfit
+  counterfit:
+    image: python:3.11-slim
+    container_name: counterfit
+    build:
+      context: ../miniapps/counterfit
+      dockerfile: Dockerfile
+    volumes:
+      - counterfit-data:/app/data
+      - model-artifacts:/app/models
+    environment:
+      - COUNTERFIT_DATA_DIR=/app/data
+    ports:
+      - "5601:5601"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - ai-security
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=ML model adversarial testing"
+
+  # ============================================================================
+  # Firmware Analysis Tools
+  # ============================================================================
+  
+  # Unblob - Universal Firmware Extractor
+  # Repository: https://github.com/onekey-sec/unblob
+  unblob:
+    image: ghcr.io/onekey-sec/unblob:latest
+    container_name: unblob
+    volumes:
+      - unblob-data:/data
+      - firmware-samples:/firmware
+    working_dir: /data
+    networks:
+      - homelab
+    profiles:
+      - firmware-analysis
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=Firmware extraction and analysis"
+
+  # Firmware Analysis API (wrapper for unblob + binwalk)
+  firmware-analyzer:
+    image: python:3.11-slim
+    container_name: firmware-analyzer
+    build:
+      context: ../miniapps/firmware-analyzer
+      dockerfile: Dockerfile
+    volumes:
+      - firmware-samples:/firmware
+      - unblob-data:/extracted
+    environment:
+      - UPLOAD_DIR=/firmware
+      - EXTRACT_DIR=/extracted
+    ports:
+      - "5602:5602"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - firmware-analysis
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=Firmware analysis REST API"
+
+  # ============================================================================
+  # RF & Spectrum Analysis
+  # ============================================================================
+  
+  # FISSURE - RF Framework (requires SDR hardware for full functionality)
+  # Repository: https://github.com/ainfosec/FISSURE
+  # Note: Full FISSURE requires X11/GUI - this is the headless API component
+  fissure-api:
+    image: python:3.11-slim
+    container_name: fissure-api
+    build:
+      context: ../miniapps/fissure-api
+      dockerfile: Dockerfile
+    volumes:
+      - fissure-data:/app/data
+      - rf-captures:/app/captures
+    environment:
+      - FISSURE_DATA_DIR=/app/data
+      - RF_CAPTURES_DIR=/app/captures
+    ports:
+      - "5603:5603"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - rf-analysis
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=RF signal analysis API"
+
+  # Signal Classifier - ML-based RF signal identification
+  signal-classifier:
+    image: python:3.11-slim
+    container_name: signal-classifier
+    build:
+      context: ../miniapps/signal-classifier
+      dockerfile: Dockerfile
+    volumes:
+      - rf-captures:/app/captures
+      - model-artifacts:/app/models
+    environment:
+      - MODEL_DIR=/app/models
+      - CAPTURES_DIR=/app/captures
+    ports:
+      - "5604:5604"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - rf-analysis
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=ML-based RF signal classification"
+
+  # ============================================================================
+  # ICS/SCADA Security
+  # ============================================================================
+  
+  # ICS Protocol Fuzzer API
+  ics-fuzzer:
+    image: python:3.11-slim
+    container_name: ics-fuzzer
+    build:
+      context: ../miniapps/ics-fuzzer
+      dockerfile: Dockerfile
+    volumes:
+      - ./configs/ics:/app/configs
+    environment:
+      - FUZZER_CONFIG_DIR=/app/configs
+    ports:
+      - "5605:5605"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - ics-security
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=ICS/SCADA protocol fuzzing"
+
+  # ============================================================================
+  # Automotive Security
+  # ============================================================================
+  
+  # Automotive Protocol Analyzer (SOME/IP, DoIP, UDS)
+  automotive-analyzer:
+    image: python:3.11-slim
+    container_name: automotive-analyzer
+    build:
+      context: ../miniapps/automotive-analyzer
+      dockerfile: Dockerfile
+    volumes:
+      - ./configs/automotive:/app/configs
+    environment:
+      - CONFIG_DIR=/app/configs
+    ports:
+      - "5606:5606"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - automotive-security
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=Automotive protocol analysis"
+
+  # ============================================================================
+  # Side-Channel Analysis
+  # ============================================================================
+  
+  # Side-Channel Analysis API (wrapper for trace processing)
+  sca-analyzer:
+    image: python:3.11-slim
+    container_name: sca-analyzer
+    build:
+      context: ../miniapps/sca-analyzer
+      dockerfile: Dockerfile
+    volumes:
+      - ./data/sca-traces:/app/traces
+    environment:
+      - TRACES_DIR=/app/traces
+    ports:
+      - "5607:5607"
+    networks:
+      - homelab
+    restart: unless-stopped
+    profiles:
+      - hardware-security
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=Side-channel trace analysis"
+
+  # ============================================================================
+  # Unified Security Dashboard
+  # ============================================================================
+  
+  security-dashboard:
+    image: python:3.11-slim
+    container_name: security-dashboard
+    build:
+      context: ../miniapps/security-dashboard
+      dockerfile: Dockerfile
+    volumes:
+      - garak-data:/app/data/garak:ro
+      - counterfit-data:/app/data/counterfit:ro
+      - firmware-samples:/app/data/firmware:ro
+      - rf-captures:/app/data/rf:ro
+    environment:
+      - GARAK_URL=http://garak:5600
+      - COUNTERFIT_URL=http://counterfit:5601
+      - FIRMWARE_ANALYZER_URL=http://firmware-analyzer:5602
+      - FISSURE_URL=http://fissure-api:5603
+      - SIGNAL_CLASSIFIER_URL=http://signal-classifier:5604
+      - ICS_FUZZER_URL=http://ics-fuzzer:5605
+      - AUTOMOTIVE_URL=http://automotive-analyzer:5606
+      - SCA_ANALYZER_URL=http://sca-analyzer:5607
+    ports:
+      - "5610:5610"
+    networks:
+      - homelab
+    restart: unless-stopped
+    labels:
+      - "homelab.category=security-research"
+      - "homelab.description=Unified security research dashboard"

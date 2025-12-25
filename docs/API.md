@@ -426,3 +426,181 @@ X-API-Key: {api_key}
 | `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
 | `SERVICE_UNAVAILABLE` | 503 | Service temporarily down |
 | `INFERENCE_ERROR` | 500 | AI inference failed |
+
+---
+
+## 🔬 Security Research APIs
+
+### Garak - LLM Vulnerability Scanner
+
+**Base URL:** `http://localhost:5600`
+
+#### Start LLM Scan
+
+```http
+POST /scan
+Content-Type: application/json
+
+{
+  "model_type": "ollama",
+  "model_name": "llama2",
+  "api_base": "http://ollama:11434",
+  "probes": ["promptinject", "dan"],
+  "generations": 5
+}
+```
+
+**Response:**
+```json
+{
+  "scan_id": "abc123",
+  "status": "queued",
+  "model": "ollama/llama2",
+  "started_at": "2024-01-15T12:00:00Z"
+}
+```
+
+#### Get Scan Status
+
+```http
+GET /scan/{scan_id}
+```
+
+#### List Probes
+
+```http
+GET /probes
+```
+
+**Response:**
+```json
+{
+  "categories": {
+    "prompt_injection": [...],
+    "jailbreak": [...],
+    "encoding": [...],
+    "leakage": [...]
+  }
+}
+```
+
+### Firmware Analyzer
+
+**Base URL:** `http://localhost:5602`
+
+#### Upload Firmware
+
+```http
+POST /upload
+Content-Type: multipart/form-data
+
+file: [firmware.bin]
+```
+
+**Response:**
+```json
+{
+  "analysis_id": "xyz789",
+  "status": "queued",
+  "sha256": "a1b2c3...",
+  "file_size": 10485760
+}
+```
+
+#### Get Analysis Results
+
+```http
+GET /analysis/{analysis_id}
+```
+
+**Response:**
+```json
+{
+  "analysis_id": "xyz789",
+  "status": "completed",
+  "file_count": 1250,
+  "findings": [
+    {
+      "category": "credentials",
+      "path": "etc/shadow",
+      "size": 1024
+    }
+  ]
+}
+```
+
+#### List Extracted Files
+
+```http
+GET /analysis/{analysis_id}/files?limit=100&offset=0
+```
+
+### Signal Classifier
+
+**Base URL:** `http://localhost:5604`
+
+#### Classify IQ Data
+
+```http
+POST /classify
+Content-Type: multipart/form-data
+
+file: [capture.raw]
+sample_rate: 2400000
+center_freq: 2437000000
+```
+
+**Response:**
+```json
+{
+  "classification_id": "def456",
+  "modulation": "OFDM",
+  "modulation_confidence": 0.87,
+  "protocol": "wifi_2.4ghz",
+  "protocol_confidence": 0.92,
+  "signal_features": {
+    "snr_db": 22.5,
+    "bandwidth_hz": 20000000,
+    "power_dbm": -45.2
+  }
+}
+```
+
+#### List Modulations
+
+```http
+GET /modulations
+```
+
+#### List Protocol Signatures
+
+```http
+GET /protocols
+```
+
+### Security Dashboard
+
+**Base URL:** `http://localhost:5610`
+
+#### Get All Services Status
+
+```http
+GET /api/status
+```
+
+**Response:**
+```json
+{
+  "timestamp": "2024-01-15T12:00:00Z",
+  "services": [
+    {
+      "name": "garak",
+      "url": "http://garak:5600",
+      "status": "healthy",
+      "latency_ms": 45.2
+    }
+  ],
+  "healthy": 8,
+  "total": 9
+}
+```

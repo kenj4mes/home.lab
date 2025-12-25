@@ -201,6 +201,67 @@ rollback:
 	./scripts/deploy.sh production --rollback
 
 # ==============================================================================
+# SECURITY RESEARCH COMMANDS
+# ==============================================================================
+
+COMPOSE_SECURITY ?= docker/docker-compose.security-research.yml
+DC_SECURITY = docker compose -f $(COMPOSE_SECURITY)
+
+## Start all security research tools
+security-start:
+	@echo "🔬 Starting Security Research Stack..."
+	$(DC_SECURITY) --profile ai-security --profile firmware-analysis up -d
+	@echo "✅ Security research tools started!"
+	@echo ""
+	@echo "Access services:"
+	@echo "  Dashboard:         http://localhost:5610"
+	@echo "  Garak (LLM scan):  http://localhost:5600"
+	@echo "  Firmware Analyzer: http://localhost:5602"
+
+## Stop security research tools
+security-stop:
+	@echo "🛑 Stopping Security Research Stack..."
+	$(DC_SECURITY) down
+	@echo "✅ Security research tools stopped"
+
+## Start AI security tools only
+security-ai:
+	@echo "🛡️ Starting AI Security Tools..."
+	$(DC_SECURITY) --profile ai-security up -d
+	@echo "✅ AI security tools started!"
+	@echo "  Garak:      http://localhost:5600"
+	@echo "  Counterfit: http://localhost:5601"
+
+## Start firmware analysis
+security-firmware:
+	@echo "🔧 Starting Firmware Analysis..."
+	$(DC_SECURITY) --profile firmware-analysis up -d
+	@echo "✅ Firmware analyzer started!"
+	@echo "  Firmware Analyzer: http://localhost:5602"
+
+## Start RF analysis (requires GPU)
+security-rf:
+	@echo "📡 Starting RF Analysis (GPU required)..."
+	$(DC_SECURITY) --profile rf-analysis up -d
+	@echo "✅ RF analysis tools started!"
+	@echo "  Signal Classifier: http://localhost:5604"
+
+## Clone all security research repositories
+security-clone:
+	@echo "📥 Cloning security research repositories..."
+	./scripts/clone-security-research.sh ./security-research
+	@echo "✅ Repositories cloned to ./security-research"
+
+## Security research status
+security-status:
+	@echo "📊 Security Research Status"
+	$(DC_SECURITY) ps
+
+## Security research logs
+security-logs:
+	$(DC_SECURITY) logs -f --tail=100
+
+# ==============================================================================
 # MAINTENANCE COMMANDS
 # ==============================================================================
 
@@ -275,6 +336,14 @@ help:
 	@echo "  make backup      Run backup"
 	@echo "  make deploy      Deploy to production"
 	@echo "  make rollback    Rollback deployment"
+	@echo ""
+	@echo "Security Research:"
+	@echo "  make security-start   Start security research tools"
+	@echo "  make security-stop    Stop security research tools"
+	@echo "  make security-ai      Start AI security tools only"
+	@echo "  make security-firmware Start firmware analysis"
+	@echo "  make security-rf      Start RF analysis (GPU)"
+	@echo "  make security-clone   Clone all research repos"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean       Remove unused Docker resources"

@@ -1,0 +1,244 @@
+# Security Research Configuration
+# Tools and resources for advanced security research
+
+# ============================================================================
+# Repository Catalog
+# ============================================================================
+repositories:
+  cellular:
+    - name: Sni5Gect
+      url: https://github.com/asset-group/Sni5Gect-5GNR-sniffing-and-exploitation
+      hardware: USRP B210/x310
+      description: 5G NR sniffing and injection framework
+    - name: FirmWire
+      url: https://github.com/FirmWire/FirmWire
+      hardware: none
+      description: Full-system baseband emulation
+    - name: LTESniffer
+      url: https://github.com/SysSec-KAIST/LTESniffer
+      hardware: USRP B210
+      description: Real-time LTE PDCCH decoding
+    - name: srsRAN-Project
+      url: https://github.com/srsran/srsRAN_Project
+      hardware: USRP B210/x310
+      description: Open-source 5G RAN
+    - name: Open5GS
+      url: https://github.com/open5gs/open5gs
+      hardware: none
+      description: Open-source 5G core network
+
+  satellite:
+    - name: Starlink-FI
+      url: https://github.com/KULeuven-COSIC/Starlink-FI
+      hardware: RP2040 modchip
+      description: Voltage fault injection for Starlink
+    - name: gr-iridium
+      url: https://github.com/muccc/gr-iridium
+      hardware: RTL-SDR/USRP/HackRF
+      description: GNU Radio Iridium decoder
+    - name: iridium-toolkit
+      url: https://github.com/muccc/iridium-toolkit
+      hardware: none
+      description: Iridium protocol analysis
+    - name: SatDump
+      url: https://github.com/SatDump/SatDump
+      hardware: SDR
+      description: Generic satellite decoder
+    - name: Unblob
+      url: https://github.com/onekey-sec/unblob
+      hardware: none
+      description: Universal firmware extraction
+
+  hardware:
+    - name: VoltPillager
+      url: https://github.com/zt-chen/voltpillager
+      hardware: Teensy
+      description: Intel SVID voltage injection
+    - name: PicoEMP
+      url: https://github.com/newaetech/chipshouter-picoemp
+      hardware: Raspberry Pi Pico
+      description: Low-cost EM fault injection
+    - name: LFI-Rig
+      url: https://github.com/fraktalcyber/lfi-rig
+      hardware: Laser diode, XY stage
+      description: Laser fault injection
+    - name: Jlsca
+      url: https://github.com/Riscure/Jlsca
+      hardware: Oscilloscope
+      description: Side-channel analysis in Julia
+    - name: ChipWhisperer
+      url: https://github.com/newaetech/chipwhisperer
+      hardware: ChipWhisperer board
+      description: Hardware security platform
+
+  rf_warfare:
+    - name: FISSURE
+      url: https://github.com/ainfosec/FISSURE
+      hardware: SDR
+      description: Unified RF analysis framework
+    - name: GhostPeak-UWB
+      url: https://github.com/seemoo-lab/uwb-sniffer
+      hardware: DW1000/DW3000
+      description: UWB distance attacks
+    - name: ICSFuzz
+      url: https://github.com/momalab/icsfuzz
+      hardware: PLC
+      description: CODESYS PLC fuzzer
+    - name: eth-scapy-someip
+      url: https://github.com/jamores/eth-scapy-someip
+      hardware: Automotive ethernet
+      description: SOME/IP protocol
+    - name: TorchSig
+      url: https://github.com/TorchDSP/torchsig
+      hardware: GPU
+      description: Deep learning for RF
+
+  ai_security:
+    - name: Garak
+      url: https://github.com/NVIDIA/garak
+      hardware: none
+      description: LLM vulnerability scanner
+    - name: Counterfit
+      url: https://github.com/Azure/counterfit
+      hardware: none
+      description: ML adversarial attacks
+    - name: ART
+      url: https://github.com/Trusted-AI/adversarial-robustness-toolbox
+      hardware: GPU
+      description: Adversarial robustness toolbox
+    - name: TextAttack
+      url: https://github.com/QData/TextAttack
+      hardware: GPU
+      description: NLP adversarial attacks
+
+  firmware:
+    - name: OFRAK
+      url: https://github.com/redballoonsecurity/ofrak
+      hardware: none
+      description: Firmware RE and modification
+    - name: Binwalk
+      url: https://github.com/ReFirmLabs/binwalk
+      hardware: none
+      description: Firmware extraction
+    - name: EMBA
+      url: https://github.com/e-m-b-a/emba
+      hardware: none
+      description: Embedded firmware analyzer
+
+# ============================================================================
+# Service Configuration
+# ============================================================================
+services:
+  garak:
+    port: 5600
+    profiles: [ai-security]
+    description: LLM vulnerability scanning API
+
+  counterfit:
+    port: 5601
+    profiles: [ai-security]
+    description: ML adversarial testing API
+
+  firmware_analyzer:
+    port: 5602
+    profiles: [firmware-analysis]
+    description: Firmware extraction REST API
+
+  fissure_api:
+    port: 5603
+    profiles: [rf-analysis]
+    description: RF signal analysis API
+
+  signal_classifier:
+    port: 5604
+    profiles: [rf-analysis]
+    gpu_required: true
+    description: ML-based RF classification
+
+  ics_fuzzer:
+    port: 5605
+    profiles: [ics-security]
+    description: ICS/SCADA protocol fuzzing
+
+  automotive_analyzer:
+    port: 5606
+    profiles: [automotive-security]
+    description: Automotive protocol analysis
+
+  sca_analyzer:
+    port: 5607
+    profiles: [hardware-security]
+    description: Side-channel trace analysis
+
+  security_dashboard:
+    port: 5610
+    profiles: []
+    description: Unified security dashboard
+
+# ============================================================================
+# Probe Categories (for Garak)
+# ============================================================================
+llm_probes:
+  prompt_injection:
+    - promptinject.HijackHateHumansMini
+    - promptinject.HijackKillHumansMini
+    - promptinject.HijackLongPrompt
+  jailbreak:
+    - dan.Dan_11_0
+    - dan.Dan_6_0
+    - dan.DUDE
+    - dan.ChatGPT_Developer_Mode_v2
+  encoding:
+    - encoding.InjectBase64
+    - encoding.InjectROT13
+    - encoding.InjectHex
+  leakage:
+    - leakreplay.LiteratureCloze
+    - leakreplay.GuardianCloze
+  hallucination:
+    - snowball.GraphConnectivity
+    - snowball.Primes
+
+# ============================================================================
+# Signal Classification
+# ============================================================================
+modulation_types:
+  amplitude:
+    - OOK
+    - 4ASK
+    - 8ASK
+  phase:
+    - BPSK
+    - QPSK
+    - 8PSK
+    - 16PSK
+  quadrature:
+    - 16QAM
+    - 32QAM
+    - 64QAM
+    - 128QAM
+    - 256QAM
+  frequency:
+    - 2FSK
+    - 4FSK
+    - 8FSK
+    - GMSK
+  multicarrier:
+    - OFDM
+
+protocol_signatures:
+  wifi:
+    - wifi_2.4ghz: {freq: "2400-2500 MHz", bandwidth: "20 MHz"}
+    - wifi_5ghz: {freq: "5150-5850 MHz", bandwidth: "40-160 MHz"}
+  cellular:
+    - lte_band7: {freq: "2500-2690 MHz", bandwidth: "10-20 MHz"}
+    - lte_band3: {freq: "1710-1880 MHz", bandwidth: "10-20 MHz"}
+    - 5g_n78: {freq: "3300-3800 MHz", bandwidth: "100 MHz"}
+  iot:
+    - bluetooth: {freq: "2400-2483 MHz", bandwidth: "1 MHz"}
+    - zigbee: {freq: "2400-2500 MHz", bandwidth: "2 MHz"}
+    - lorawan: {freq: "868-928 MHz", bandwidth: "125-500 kHz"}
+  aviation:
+    - adsb: {freq: "1090 MHz", bandwidth: "1 MHz"}
+  navigation:
+    - gps_l1: {freq: "1575.42 MHz", bandwidth: "2 MHz"}
