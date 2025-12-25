@@ -23,7 +23,7 @@
 
 ## 🎯 Technical Interview Profile
 
-> **Self-hosted infrastructure platform with 60+ integrated services, designed for offline sovereignty and multi-domain expertise.**
+> **Self-hosted infrastructure platform with 70+ integrated services, designed for offline sovereignty and multi-domain expertise.**
 
 <details>
 <summary><b>📊 Core Competencies</b></summary>
@@ -87,11 +87,14 @@ Networking:    Nginx, Pi-hole, TURN/STUN, Matrix federation
 
 - **🤖 Local AI** - Run Ollama with Open WebUI (ChatGPT-like interface) 100% offline
 - **🎬 Media Server** - Jellyfin for your streaming media
+- **� Media Automation** - Sonarr, Radarr, Prowlarr, Lidarr, Bazarr (*arr stack)
 - **📚 Offline Knowledge** - Kiwix with Wikipedia, Stack Overflow, and more
 - **📝 Documentation** - BookStack wiki for notes and documentation
 - **🔗 Blockchain** - Optional Base L2 node with explorer and wallet API
 - **📊 Monitoring** - Prometheus + Grafana + Loki stack
 - **🔒 Security** - Secure secrets, health checks, and hardened containers
+- **🛡️ Pi-hole DNS** - Network-wide ad blocking and DNS server
+- **🔑 Identity & SSO** - Keycloak SSO, OAuth2 Proxy for centralized authentication
 - **⚛️ Quantum-Ready** - Post-quantum TLS, QRNG, and quantum simulator
 - **🌐 Web3 Development** - Hardhat 3, Foundry, Base L2 templates, and smart contract tooling
 - **🤖 AI Agents** - LangGraph, CrewAI, AutoGen, and MCP server integration
@@ -109,9 +112,9 @@ Networking:    Nginx, Pi-hole, TURN/STUN, Matrix federation
 - **🛡️ AI/ML Security** - Garak LLM scanner, Counterfit adversarial testing, ART toolbox
 - **📡 Signal Intelligence** - 28+ cloned research tools for cellular, satellite, and RF analysis
 - **📊 GitHub Profile Analytics** - S+ rank stats, trophies, snake animation, WakaTime, automated workflows
-- **�📴 Offline-First** - Complete offline operation with dependency caching
+- **📴 Offline-First** - Complete offline operation with dependency caching
 - **🔄 Idempotent** - Safe to run multiple times
-- **🧙 Install Wizard** - Interactive setup with component selection
+- **🧙 Install Wizard** - Interactive setup with 22 component selections
 
 ## 🏗️ Architecture
 
@@ -320,6 +323,36 @@ make base-logs      # View blockchain logs
 | **Nginx Proxy** | 80/443 | Reverse Proxy & HTTPS |
 | **qBittorrent** | 8080 | Torrent Client |
 
+### Media Automation (*arr Stack) (Optional) 📺
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Sonarr** | 8989 | TV series management & automation |
+| **Radarr** | 7878 | Movie management & automation |
+| **Prowlarr** | 9696 | Indexer manager for *arr apps |
+| **Lidarr** | 8686 | Music collection management |
+| **Bazarr** | 6767 | Subtitle management |
+| **Overseerr** | 5055 | Request management for Plex/Jellyfin |
+
+```bash
+# Start *arr stack
+docker compose -f docker/docker-compose.arr.yml up -d
+```
+
+### Pi-hole DNS (Optional) 🛡️
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Pi-hole** | 80/53 | DNS-level ad blocking |
+| **Pi-hole Admin** | 8053 | Web admin interface |
+
+> ⚠️ Requires port 53 - may conflict with existing DNS resolver
+
+```bash
+# Start Pi-hole
+docker compose -f docker/docker-compose.pihole.yml up -d
+```
+
 ### Blockchain Services (Optional)
 
 | Service | Port | Description |
@@ -410,6 +443,19 @@ See [docs/CREATIVE.md](docs/CREATIVE.md) for model requirements and GPU setup.
 | **Vault** | 8200 | HashiCorp Vault secrets management |
 
 See [docs/PQTLS.md](docs/PQTLS.md) for certificate generation and testing.
+
+### Identity & SSO (Optional) 🔑
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Keycloak** | 8180 | SSO identity provider (OAuth2/OIDC/SAML) |
+| **OAuth2 Proxy** | 4180 | Authentication proxy for services |
+| **LDAP** | 389/636 | Directory service (optional) |
+
+```bash
+# Start Identity stack
+docker compose -f docker/docker-compose.identity.yml up -d
+```
 
 ### Superchain Ecosystem (Optional) ⛓️
 
