@@ -76,7 +76,7 @@ AI/ML:         Ollama, Transformers, Diffusers, ONNX, CUDA, Garak, Counterfit
 Blockchain:    OP-Stack, EVM, Hardhat, Foundry, Web3.py, ethers.js
 Security:      Post-Quantum Crypto, Vault, TLS 1.3, OQS-OpenSSL, Firmware Analysis
 SIGINT:        LTESniffer, srsRAN, FISSURE, TorchSig, gr-iridium, Starlink-FI
-Networking:    Nginx, Pi-hole, TURN/STUN, Matrix federation
+Networking:    Nginx, Pi-hole, Cloudflare WARP, TURN/STUN, Matrix federation
 ```
 
 </details>
@@ -115,6 +115,7 @@ Networking:    Nginx, Pi-hole, TURN/STUN, Matrix federation
 - **📴 Offline-First** - Complete offline operation with dependency caching
 - **🔄 Idempotent** - Safe to run multiple times
 - **🧙 Install Wizard** - Interactive setup with 22 component selections
+- **🌐 Cloudflare WARP** - Docker-friendly encrypted DNS (1.1.1.1) included by default
 
 ## 🏗️ Architecture
 
@@ -351,6 +352,29 @@ docker compose -f docker/docker-compose.arr.yml up -d
 ```bash
 # Start Pi-hole
 docker compose -f docker/docker-compose.pihole.yml up -d
+```
+
+### Cloudflare WARP (1.1.1.1) 🌐
+
+> **Installed by default** - Docker-friendly encrypted DNS that works with any VPN.
+
+| Feature | Description |
+|---------|-------------|
+| **Encrypted DNS** | All DNS queries encrypted via 1.1.1.1 |
+| **Docker Compatible** | Doesn't break localhost or container networking |
+| **VPN Friendly** | Works alongside Proton VPN, NordVPN, etc. |
+| **Free Unlimited** | No bandwidth limits or throttling |
+
+```powershell
+# Install/configure manually
+.\scripts\install-cloudflare-warp.ps1
+
+# Check status
+warp-cli status
+
+# Connect/disconnect
+warp-cli connect
+warp-cli disconnect
 ```
 
 ### Blockchain Services (Optional)
@@ -607,6 +631,7 @@ homelab/
 │   ├── health-check.sh            # 🔧 System health checks
 │   ├── clone-security-research.ps1 # 🔬 Clone research repos (Windows)
 │   ├── clone-security-research.sh  # 🔬 Clone research repos (Linux)
+│   ├── install-cloudflare-warp.ps1 # 🌐 Docker-friendly DNS installer
 │   └── init-homelab.sh            # Full setup script
 ├── install/                # Platform installers
 │   ├── install-wizard.ps1         # 🧙 Interactive setup wizard

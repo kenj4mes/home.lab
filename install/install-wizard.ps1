@@ -482,7 +482,43 @@ function Test-Prerequisites {
     }
     Write-Step "Disk space OK: ${freeGB}GB free" -Status SUCCESS
     
+    # Check/Install Cloudflare WARP for Docker compatibility
+    Write-Step "Checking network configuration..." -Status PHASE
+    $warpCli = "C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe"
+    if (Test-Path $warpCli) {
+        Write-Step "Cloudflare WARP is installed (Docker-friendly DNS)" -Status SUCCESS
+    }
+    else {
+        Write-Host ""
+        Write-Host "  Cloudflare WARP (1.1.1.1) provides:" -ForegroundColor Cyan
+        Write-Host "    • Encrypted DNS without breaking Docker/localhost" -ForegroundColor Gray
+        Write-Host "    • Free unlimited - no bandwidth limits" -ForegroundColor Gray
+        Write-Host "    • Works alongside any VPN" -ForegroundColor Gray
+        Write-Host ""
+        $installWarp = Read-Host "  Install Cloudflare WARP for best Docker compatibility? (Y/N, default: Y)"
+        if ($installWarp.ToUpper() -ne "N") {
+            $script:InstallWarp = $true
+        }
+    }
+    
     return $true
+}
+
+function Install-CloudflareWarp {
+    param([string]$InstallPath)
+    
+    $warpScript = Join-Path $InstallPath "scripts\install-cloudflare-warp.ps1"
+    if (Test-Path $warpScript) {
+        Write-Step "Installing Cloudflare WARP..." -Status PHASE
+        try {
+            & $warpScript -Silent
+            Write-Step "Cloudflare WARP installed and configured" -Status SUCCESS
+        }
+        catch {
+            Write-Step "WARP installation failed - install manually later" -Status WARN
+            Write-Host "    Run: .\scripts\install-cloudflare-warp.ps1" -ForegroundColor Yellow
+        }
+    }
 }
 
 function Copy-HomelabFiles {
@@ -1169,6 +1205,11 @@ function Start-InstallWizard {
     
     # Initialize environment
     Initialize-Environment -InstallPath $InstallPath
+    
+    # Install Cloudflare WARP if requested
+    if ($script:InstallWarp) {
+        Install-CloudflareWarp -InstallPath $InstallPath
+    }
     
     # Start services (optional)
     Write-Host ""
